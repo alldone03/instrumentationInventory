@@ -15,7 +15,7 @@ class DatabaseSeeder extends Seeder
             WorkAreaSeeder::class,
             LocationSeeder::class,
             UserSeeder::class,
-            ItemSeeder::class,
+            // ItemSeeder::class,
         ]);
     }
 }
