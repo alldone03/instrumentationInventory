@@ -1,0 +1,150 @@
+# ROLE & TECH STACK
+Act as a Senior Full-Stack Laravel & React Architect. I am building an **Industrial Warehouse, Sparepart & Tool Inventory Management System** (Instrument & Electrical Workshop) using:
+- **Backend:** Laravel 13 (Breeze Auth), MySQL/PostgreSQL, Laravel Storage (for multi-image uploads & checkout photo proofs), Maatwebsite/Excel (for SAP Seeding/Export).
+- **Frontend:** React, Inertia.js, Tailwind CSS, and **DaisyUI** (use clean industrial UI components: cards, modals, badges, drawers, tabs, and data tables).
+
+---
+
+# 1. DATABASE ARCHITECTURE & SCHEMA DESIGN
+Design a normalized, scalable relational database schema. **CRITICAL:** Do NOT use `mn_code` (SAP/MN) as the Primary Key because some items/tools do not have an MN number yet. Always use an auto-incrementing `id` (or UUID) as the Primary Key, and make `mn_code` `nullable` and indexed.
+
+Unify the physical warehouse data and SAP master data into the following tables:
+
+### A. `work_areas` (Area Kerja / Bagian)
+- `id` (PK)
+- `name` (String):
+  1. `Phonska 1 dan 4`
+  2. `Phonska 2 dan 3`
+  3. `Utilitas, NPK 1, dan ZK`
+  4. `Phonska 4 dan NPK 2, 3, 4`
+  5. `Bagging`
+  6. `Umum / Shared` (For general items accessible by all areas without cross-area approval)
+
+### B. `users` (Extend Breeze Users)
+- Add `role`: Enum/String -> `'tko'`, `'tkno'`, `'tkno_admin'`
+- Add `work_area_id`: Foreign Key to `work_areas` (nullable for `tkno_admin`)
+- Add `badge_number` / `nik` (nullable string)
+
+### C. `locations` (Rak & Gudang)
+- `id` (PK)
+- `name` (String) - Seed with:
+  `Gudang Bawah`, `L8`, `L3`, `L10`, `L1. Rak 1`, `L1. Rak 2`, `L1. Rak 3`, `L1. Rak 4`, `L1. Rak 5`, `L2. Rak 1`, `L2. Rak 2`, `L2. Rak 3`, `L2. Rak 4`, `GB. Rak Gantung`, `GB. Rak 3A`, `GA. L1`, `L9. Rak 1`, `L9. Rak 3`, `GA. Rak Gantung`, `GA. Rak 2A/3A`, `GA. Rak 2B/3B`, `GA. Rak 2C/3C`, `GA. Rak 2D/3D`, `GA. Rak 4A/4B`, `GA. Rak 4C`, `GA. Rak 5A`, `GA. Rak 5B`.
+
+### D. `items` (Master Barang, Sparepart & Tools)
+This table merges warehouse stock tracking with SAP Master Data:
+- `id` (PK)
+- `mn_code` (String, Nullable, Indexed) -> SAP / MN Number (e.g., `6193311`)
+- `item_name` (String, Required) -> "Deskripsi" (Internal Instrument team terminology/naming)
+- `sap_description` (String, Nullable) -> "Deskripsi SAP" (Official standardized SAP naming, e.g., `IDD IIIA FLAME DETECTOR AMMPLIFIER -- D-`)
+- `item_category` (Enum: `'consumable_part'`, `'tool'`) -> Distinguishes between permanent sparepart consumption (pengambilan barang) and returnable tools (peminjaman alat).
+- `type` (String) -> Technical Type: `Control Valve`, `Pressure`, `Flow`, `Level`, `Analyzer`, `PLC/DCS`, `Pagging`, `Burner`, `Dosometer`, `Accessories / Sparepart`, `Bagging & Bagcode`, `Safety Device`.
+- `sap_classification` (String, Nullable) -> SAP Klasifikasi: `PAGGING`, `DOSOMETER`, `Bagging`, `PLC & DCS`, `Analyzer`, `CONTROL VALVE DAN SOV`, `Other`.
+- `sap_status` (Enum/String, Nullable) -> SAP MRP Status: `PD`, `ND`, `VB`.
+- `reorder_point` (Integer, Default: 0) -> SAP Reorder Point
+- `min_lot_size` (Integer, Default: 0) -> SAP Min Lot Size
+- `system_stock` (Integer, Default: 0) -> Current available quantity in system
+- `actual_stock` (Integer, Default: 0) -> Last verified physical stock from Stock Opname
+- `last_stock_opname_at` (Date/Timestamp, Nullable) -> Update Tanggal Stok Opname
+- `location_id` (FK to `locations`, Nullable)
+- `owner_work_area_id` (FK to `work_areas`) -> Determines item ownership. If set to `Umum / Shared`, anyone can take it. If set to a specific area (e.g., `Phonska 1 dan 4`), users from other areas require approval.
+- `notes` (Text, Nullable) -> Operational notes (e.g., `"hanya di incenerator 02/06 (saat ini)"`, `"dihapus"`).
+- `timestamps`
+
+### E. `item_images` (Multi-Photo per Product)
+- `id` (PK)
+- `item_id` (FK to `items`, cascade on delete)
+- `image_path` (String)
+- `is_primary` (Boolean, Default: false)
+- `timestamps`
+
+### F. `inventory_transactions` (Checkout, Peminjaman Tools & Approval Logs)
+- `id` (PK)
+- `transaction_code` (String, Unique, e.g., `TRX-20261113-001`)
+- `user_id` (FK to `users` - requester)
+- `requester_work_area_id` (FK to `work_areas`)
+- `transaction_type` (Enum: `'material_take'`, `'tool_borrow'`)
+- `status` (Enum: `'pending_approval'`, `'approved'`, `'rejected'`, `'borrowed'`, `'returned'`, `'completed'`)
+- `approved_by` (FK to `users`, Nullable)
+- `approved_at` (Timestamp, Nullable)
+- `rejection_reason` (Text, Nullable)
+- `checkout_photo_path` (String, Required) -> Mandatory photo evidence when taking items or borrowing tools.
+- `return_photo_path` (String, Nullable) -> Mandatory photo evidence when returning borrowed tools.
+- `returned_at` (Timestamp, Nullable)
+- `purpose_notes` (Text, Required) -> Equipment tag / work order / reason for taking/borrowing.
+- `timestamps`
+
+### G. `inventory_transaction_items` (Line items per checkout)
+- `id` (PK)
+- `inventory_transaction_id` (FK to `inventory_transactions`)
+- `item_id` (FK to `items`)
+- `quantity` (Integer)
+
+---
+
+# 2. BUSINESS LOGIC, ROLES & WORKFLOWS
+
+### Role-Based Access Control (RBAC):
+1. **`tkno_admin` (Super Admin):** Full access to everything (CRUD items, manage users/areas, force approve/reject, stock opname adjustments, SAP CSV/Excel import & export).
+2. **`tko` (Organic Staff / Supervisor):**
+   - Full CRUD on `items` (including uploading/deleting multiple product images, updating Stock Opname `actual_stock` & date).
+   - Can approve/reject cross-area checkout requests belonging to their `work_area_id`.
+   - Can also perform checkout/borrowing.
+3. **`tkno` (Contract/Field Technician):**
+   - **Read-only** on Master Items (cannot create, edit, or delete items).
+   - Can search/browse items and add items to a **Checkout Cart**.
+   - Can submit checkout requests (pengambilan material / peminjaman tools) and return borrowed tools.
+
+### Cross-Area Ownership & Approval Logic:
+- When a user checks out an item:
+  - **Condition 1 (Auto-Approved):** Item's `owner_work_area_id` is `'Umum / Shared'` OR matches the user's `work_area_id`.
+    - Status immediately becomes `'completed'` (for `material_take`) or `'borrowed'` (for `tool_borrow`).
+    - `items.system_stock` is immediately decremented by `quantity`.
+  - **Condition 2 (Requires Approval):** Item belongs to a specific `work_area_id` that differs from the user's `work_area_id`.
+    - Status becomes `'pending_approval'`.
+    - Stock is NOT deducted yet (or held in reserved state) until a `tko` from the owning `work_area_id` (or a `tkno_admin`) clicks **Approve**.
+    - Once approved, stock is deducted and status updates to `'completed'` or `'borrowed'`.
+- **Mandatory Photo Proof:** Checkout submission MUST fail validation if no photo is uploaded/captured (`checkout_photo_path`). Similarly, returning a borrowed tool requires a return photo (`return_photo_path`) which increments `system_stock` back.
+
+### SAP Seeding & Export Compatibility:
+- Build a dedicated **SAP Export / Seed Generator** button (CSV/XLSX) that exports items formatted cleanly with SAP columns:
+  `MN | Deskripsi | Deskripsi SAP | Klasifikasi | Status | Reorder point | Min lot size | Notes`
+- Also include a **Database Seeder** with the exact sample records provided (`6193311`, `6116686`), all `work_areas`, and all `locations`.
+
+---
+
+# 3. FRONTEND UI/UX REQUIREMENTS (REACT + INERTIA + DAISYUI)
+
+1. **Product Catalog & Search Page (Card-Based Grid):**
+   - Responsive DaisyUI Card grid (`grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4`).
+   - **Search & Filters:** Instant search bar (searches across `mn_code`, `item_name` [Deskripsi Internal], and `sap_description`), plus dropdown filters for `Type`, `Location`, `Ownership Area`, and `Item Category` (Part vs Tool).
+   - **Card Design:**
+     - Product image carousel/thumbnail preview (shows primary image + badge count if multiple photos exist; clicking opens a DaisyUI modal gallery).
+     - Clear hierarchy: **Internal Name (`item_name`)** as the bold card title, **`sap_description`** as smaller muted text underneath, and **MN Code** badge (or `"NO MN"` badge if null).
+     - Badges for `Location`, `Owner Area` (color-coded: e.g., green badge for `Umum`, warning/info badge for specific areas), and `System Stock` vs `Actual Stock`.
+     - Action buttons: `"Add to Checkout"` (for all roles) and `"Edit"` (visible only to `tko` and `tkno_admin`).
+
+2. **Item Create / Edit Form (Modal or Dedicated Page for TKO & Admin):**
+   - Clean tabbed or sectioned DaisyUI form separating:
+     - **Tab 1: Workshop & Stock Info** (Internal Name, Type, Location, Owner Area, Category [Part/Tool], System Stock, Actual Stock, Tanggal Stock Opname, Notes).
+     - **Tab 2: SAP Master Data** (MN Number, Deskripsi SAP, Klasifikasi SAP, Status [PD/ND/VB], Reorder Point, Min Lot Size).
+     - **Tab 3: Product Photos** (Drag-and-drop multi-image uploader with preview, delete existing image, and "Set as Primary" toggle).
+
+3. **Checkout Drawer / Cart & Camera Upload:**
+   - Floating cart button or DaisyUI Drawer showing selected items & quantities.
+   - Radio toggle for `Pengambilan Barang (Material)` vs `Peminjaman Alat (Tools)`.
+   - Input for `Purpose / Tag Number / Work Order`.
+   - File input with `accept="image/*" capture="environment"` so field technicians on mobile can snap a photo directly of the items/tools being taken.
+   - Visual alert banner inside the drawer if any item in the cart belongs to another `work_area`, informing the user that it will trigger an **Approval Request** to that area's TKO.
+
+4. **Approval Center & Transaction Logs Page:**
+   - Tabbed view: **Pending Approvals** (filtered for the logged-in TKO's work area, or all for Admin), **Active Borrowed Tools** (with a `"Return Tool"` button + return photo modal), and **Transaction History Log** (showing checkout photos, timestamps, requester, approver, and stock movement).
+
+---
+
+# DELIVERABLES
+Please provide the implementation step-by-step:
+1. Complete **Laravel Migrations** (with proper foreign keys, nullable `mn_code`, and indexes).
+2. **Eloquent Models** with relationships and helper scopes (e.g., `requiresApprovalFor(User $user)`).
+3. **Database Seeders** (Work Areas, Locations, Sample Users for TKO/TKNO/Admin, and the sample SAP items).
+4. **Controllers & Form Requests** handling multi-image uploads, stock deduction/return transactions (`DB::transaction`), approval workflow, and SAP Excel/CSV export.
+5. **React + Inertia + DaisyUI Components** for the Card Catalog, Multi-Photo Modal, Create/Edit Form, Checkout Drawer with Photo Capture, and Approval/Log Table.
