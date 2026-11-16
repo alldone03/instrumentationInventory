@@ -5,8 +5,8 @@ export default function ItemModal({ isOpen, onClose, item = null, locations = []
     if (!isOpen) return null;
 
     const defaultUnits = units.length > 0 ? units : [
-        'Pieces (PCS)',
         'Eaches (EA)',
+        'Pieces (PCS)',
         'Kilogram (KG)',
         'Liter (L)',
         'Set (SET)',
@@ -27,7 +27,8 @@ export default function ItemModal({ isOpen, onClose, item = null, locations = []
         sap_description: item?.sap_description ?? '',
         item_category: item?.item_category ?? 'consumable_part',
         type: item?.type ?? (types[0] || 'Control Valve'),
-        unit: item?.unit ?? 'Pieces (PCS)',
+        unit: item?.unit ?? 'Eaches (EA)',
+        no_po: item?.no_po ?? '',
         sap_classification: item?.sap_classification ?? '',
         sap_status: item?.sap_status ?? '',
         reorder_point: item?.reorder_point ?? 0,
@@ -50,6 +51,7 @@ export default function ItemModal({ isOpen, onClose, item = null, locations = []
                 item_category: item.item_category ?? 'consumable_part',
                 type: item.type ?? (types[0] || 'Control Valve'),
                 unit: item.unit ?? 'Pieces (PCS)',
+                no_po: item.no_po ?? '',
                 sap_classification: item.sap_classification ?? '',
                 sap_status: item.sap_status ?? '',
                 reorder_point: item.reorder_point ?? 0,
@@ -111,6 +113,10 @@ export default function ItemModal({ isOpen, onClose, item = null, locations = []
         if (confirm('Hapus foto ini?')) {
             router.delete(route('item-images.destroy', image.id), {
                 preserveScroll: true,
+                onSuccess: () => {
+                    reset();
+                    onClose();
+                },
             });
         }
     };
@@ -360,6 +366,24 @@ export default function ItemModal({ isOpen, onClose, item = null, locations = []
                                 />
                                 <span className="text-[11px] text-base-content/60 mt-1 block">
                                     *Kosongkan bila barang/tools belum terdaftar di SAP.
+                                </span>
+                            </div>
+
+                            <div>
+                                <label className="label py-1">
+                                    <span className="label-text font-bold text-xs text-base-content">
+                                        Nomor PO Code (Nullable)
+                                    </span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={data.no_po}
+                                    onChange={(e) => setData('no_po', e.target.value)}
+                                    placeholder="Contoh: 519870237840 (Kosongkan jika belum ada)"
+                                    className="input input-bordered input-sm w-full font-mono"
+                                />
+                                <span className="text-[11px] text-base-content/60 mt-1 block">
+                                    *Kosongkan bila barang/tools belum ada PO.
                                 </span>
                             </div>
 

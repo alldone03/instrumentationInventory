@@ -35,6 +35,7 @@ class ItemController extends Controller
             $item->requires_approval = $item->requiresApprovalFor($user);
             return $item;
         });
+        $no_po = $request->input('no_po');
 
         $locations = Location::orderBy('name')->get(['id', 'name']);
         $workAreas = WorkArea::orderBy('name')->get(['id', 'name']);
@@ -83,6 +84,7 @@ class ItemController extends Controller
             'workAreas' => $workAreas,
             'types' => $types,
             'units' => $units,
+            'no_po' => $no_po,
             'sapClassifications' => $sapClassifications,
         ]);
     }

@@ -176,6 +176,56 @@ class InventorySystemTest extends TestCase
         $this->assertEquals(4, $item->fresh()->system_stock);
     }
 
+    public function test_mixed_cart_splits_into_separate_transactions(): void
+    {
+        $tool = Item::create([
+            'item_name' => 'Fluke Multimeter 789',
+            'item_category' => 'tool',
+            'type' => 'Safety Device',
+            'system_stock' => 5,
+            'owner_work_area_id' => $this->sharedArea->id,
+            'location_id' => $this->location->id,
+        ]);
+
+        $part = Item::create([
+            'item_name' => 'Fuse 10A Cartridge',
+            'item_category' => 'consumable_part',
+            'type' => 'Accessories / Sparepart',
+            'system_stock' => 20,
+            'owner_work_area_id' => $this->sharedArea->id,
+            'location_id' => $this->location->id,
+        ]);
+
+        $photo = UploadedFile::fake()->image('checkout.jpg');
+
+        $response = $this->actingAs($this->tkno1)->post('/transactions', [
+            'purpose_notes' => 'Pekerjaan perbaikan power supply panel',
+            'checkout_photo' => $photo,
+            'items' => [
+                ['id' => $tool->id, 'quantity' => 1],
+                ['id' => $part->id, 'quantity' => 2],
+            ],
+        ]);
+
+        $response->assertRedirect('/transactions');
+
+        // Harus ada 2 transaksi terpisah
+        $this->assertDatabaseHas('inventory_transactions', [
+            'transaction_type' => 'tool_borrow',
+            'status' => 'borrowed',
+            'user_id' => $this->tkno1->id,
+        ]);
+
+        $this->assertDatabaseHas('inventory_transactions', [
+            'transaction_type' => 'material_take',
+            'status' => 'completed',
+            'user_id' => $this->tkno1->id,
+        ]);
+
+        $this->assertEquals(4, $tool->fresh()->system_stock);
+        $this->assertEquals(18, $part->fresh()->system_stock);
+    }
+
     public function test_return_borrowed_tool_increments_stock(): void
     {
         $item = Item::create([

@@ -93,79 +93,136 @@ class InventoryTransactionController extends Controller
             }
         }
 
-        // Check if any item requires cross-area approval
-        $requiresApproval = false;
-        foreach ($itemsInput as $input) {
-            $item = $items->get($input['id']);
-            if ($item->requiresApprovalFor($user)) {
-                $requiresApproval = true;
-                break;
-            }
-        }
-
-        // Determine transaction_type automatically if any item is a tool
-        $hasTool = false;
-        foreach ($itemsInput as $input) {
-            $item = $items->get($input['id']);
-            if ($item && $item->item_category === 'tool') {
-                $hasTool = true;
-                break;
-            }
-        }
-        $transactionType = $hasTool ? 'tool_borrow' : ($validated['transaction_type'] ?? 'material_take');
-
-        // Determine status
-        if ($requiresApproval) {
-            $status = 'pending_approval';
-        } else {
-            $status = $transactionType === 'material_take' ? 'completed' : 'borrowed';
-        }
-
         // Handle Checkout Photo Upload
         $photoFile = $request->file('checkout_photo');
         $photoPath = $photoFile->store('transactions', 'public');
 
-        // Generate Transaction Code (e.g., TRX-20261113-001)
-        $datePrefix = date('Ymd');
-        $countToday = InventoryTransaction::whereDate('created_at', today())->count() + 1;
-        $transactionCode = sprintf('TRX-%s-%04d', $datePrefix, $countToday);
+        // Pisahkan item berdasarkan kategori: tools (pinjam) vs consumable (ambil material)
+        $toolItems = $itemsInput->filter(function ($input) use ($items) {
+            $item = $items->get($input['id']);
+            return $item && $item->item_category === 'tool';
+        });
 
-        DB::transaction(function () use ($user, $validated, $photoPath, $transactionCode, $status, $transactionType, $itemsInput, $items, $requiresApproval) {
-            $transaction = InventoryTransaction::create([
-                'transaction_code' => $transactionCode,
-                'user_id' => $user->id,
-                'requester_work_area_id' => $user->work_area_id,
-                'transaction_type' => $transactionType,
-                'status' => $status,
-                'approved_by' => $requiresApproval ? null : $user->id,
-                'approved_at' => $requiresApproval ? null : now(),
-                'checkout_photo_path' => $photoPath,
-                'purpose_notes' => $validated['purpose_notes'],
-            ]);
+        $materialItems = $itemsInput->filter(function ($input) use ($items) {
+            $item = $items->get($input['id']);
+            return !$item || $item->item_category !== 'tool';
+        });
 
-            foreach ($itemsInput as $input) {
-                $item = $items->get($input['id']);
+        $createdTransactions = [];
 
-                InventoryTransactionItem::create([
-                    'inventory_transaction_id' => $transaction->id,
-                    'item_id' => $item->id,
-                    'quantity' => $input['quantity'],
+        DB::transaction(function () use ($user, $validated, $photoPath, $toolItems, $materialItems, $items, &$createdTransactions) {
+            $datePrefix = date('Ymd');
+
+            // 1. Proses Peminjaman Tools jika ada
+            if ($toolItems->isNotEmpty()) {
+                $requiresApproval = false;
+                foreach ($toolItems as $input) {
+                    $item = $items->get($input['id']);
+                    if ($item->requiresApprovalFor($user)) {
+                        $requiresApproval = true;
+                        break;
+                    }
+                }
+
+                $status = $requiresApproval ? 'pending_approval' : 'borrowed';
+                $countToday = InventoryTransaction::whereDate('created_at', today())->count() + 1;
+                $toolCode = sprintf('TRX-%s-%04d', $datePrefix, $countToday);
+
+                $toolTransaction = InventoryTransaction::create([
+                    'transaction_code' => $toolCode,
+                    'user_id' => $user->id,
+                    'requester_work_area_id' => $user->work_area_id,
+                    'transaction_type' => 'tool_borrow',
+                    'status' => $status,
+                    'approved_by' => $requiresApproval ? null : $user->id,
+                    'approved_at' => $requiresApproval ? null : now(),
+                    'checkout_photo_path' => $photoPath,
+                    'purpose_notes' => $validated['purpose_notes'],
                 ]);
 
-                // If auto-approved, decrement stock immediately
-                if (!$requiresApproval) {
-                    $item->decrement('system_stock', $input['quantity']);
+                foreach ($toolItems as $input) {
+                    $item = $items->get($input['id']);
+                    InventoryTransactionItem::create([
+                        'inventory_transaction_id' => $toolTransaction->id,
+                        'item_id' => $item->id,
+                        'quantity' => $input['quantity'],
+                    ]);
+
+                    if (!$requiresApproval) {
+                        $item->decrement('system_stock', $input['quantity']);
+                    }
                 }
+
+                $createdTransactions[] = [
+                    'type' => 'tool_borrow',
+                    'code' => $toolCode,
+                    'requires_approval' => $requiresApproval,
+                ];
+            }
+
+            // 2. Proses Pengambilan Material jika ada
+            if ($materialItems->isNotEmpty()) {
+                $requiresApproval = false;
+                foreach ($materialItems as $input) {
+                    $item = $items->get($input['id']);
+                    if ($item->requiresApprovalFor($user)) {
+                        $requiresApproval = true;
+                        break;
+                    }
+                }
+
+                $status = $requiresApproval ? 'pending_approval' : 'completed';
+                $countToday = InventoryTransaction::whereDate('created_at', today())->count() + 1;
+                $materialCode = sprintf('TRX-%s-%04d', $datePrefix, $countToday);
+
+                $materialTransaction = InventoryTransaction::create([
+                    'transaction_code' => $materialCode,
+                    'user_id' => $user->id,
+                    'requester_work_area_id' => $user->work_area_id,
+                    'transaction_type' => 'material_take',
+                    'status' => $status,
+                    'approved_by' => $requiresApproval ? null : $user->id,
+                    'approved_at' => $requiresApproval ? null : now(),
+                    'checkout_photo_path' => $photoPath,
+                    'purpose_notes' => $validated['purpose_notes'],
+                ]);
+
+                foreach ($materialItems as $input) {
+                    $item = $items->get($input['id']);
+                    InventoryTransactionItem::create([
+                        'inventory_transaction_id' => $materialTransaction->id,
+                        'item_id' => $item->id,
+                        'quantity' => $input['quantity'],
+                    ]);
+
+                    if (!$requiresApproval) {
+                        $item->decrement('system_stock', $input['quantity']);
+                    }
+                }
+
+                $createdTransactions[] = [
+                    'type' => 'material_take',
+                    'code' => $materialCode,
+                    'requires_approval' => $requiresApproval,
+                ];
             }
         });
 
-        $message = $requiresApproval
-            ? 'Pengajuan checkout berhasil dikirim dan menunggu persetujuan (Approval) TKO pemilik area.'
-            : ($transactionType === 'material_take'
-                ? 'Pengambilan material berhasil diproses. Stok telah diperbarui.'
-                : 'Peminjaman alat berhasil diproses. Jangan lupa mengembalikan alat setelah selesai.');
+        // Susun pesan notifikasi yang jelas
+        $messages = [];
+        foreach ($createdTransactions as $trxInfo) {
+            if ($trxInfo['type'] === 'tool_borrow') {
+                $messages[] = $trxInfo['requires_approval']
+                    ? "Peminjaman alat ({$trxInfo['code']}) menunggu approval TKO pemilik area."
+                    : "Peminjaman alat ({$trxInfo['code']}) aktif dan masuk daftar alat sedang dipinjam.";
+            } else {
+                $messages[] = $trxInfo['requires_approval']
+                    ? "Pengambilan material ({$trxInfo['code']}) menunggu approval TKO pemilik area."
+                    : "Pengambilan material ({$trxInfo['code']}) berhasil diselesaikan & stok dipotong.";
+            }
+        }
 
-        return redirect()->route('transactions.index')->with('success', $message);
+        return redirect()->route('transactions.index')->with('success', implode(' | ', $messages));
     }
 
     public function approve(Request $request, InventoryTransaction $transaction): RedirectResponse
@@ -268,4 +325,3 @@ class InventoryTransactionController extends Controller
         return redirect()->back()->with('success', "Alat untuk transaksi {$transaction->transaction_code} berhasil dikembalikan dan stok telah dikembalikan ke sistem.");
     }
 }
-

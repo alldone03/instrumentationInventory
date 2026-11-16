@@ -20,6 +20,7 @@ class Item extends Model
         'item_category',
         'type',
         'unit',
+        'no_po',
         'sap_classification',
         'sap_status',
         'reorder_point',

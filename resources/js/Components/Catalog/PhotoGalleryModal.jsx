@@ -61,11 +61,10 @@ export default function PhotoGalleryModal({ item, isOpen, onClose }) {
                                     <button
                                         key={img.id || idx}
                                         onClick={() => setSelectedIndex(idx)}
-                                        className={`relative w-20 h-20 rounded-lg overflow-hidden border-2 flex-shrink-0 transition ${
-                                            selectedIndex === idx
-                                                ? 'border-primary ring-2 ring-primary/30'
-                                                : 'border-base-300 opacity-60 hover:opacity-100'
-                                        }`}
+                                        className={`relative w-20 h-20 rounded-lg overflow-hidden border-2 flex-shrink-0 transition ${selectedIndex === idx
+                                            ? 'border-primary ring-2 ring-primary/30'
+                                            : 'border-base-300 opacity-60 hover:opacity-100'
+                                            }`}
                                     >
                                         <img
                                             src={img.image_url}

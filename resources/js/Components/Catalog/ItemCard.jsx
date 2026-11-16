@@ -8,7 +8,7 @@ export default function ItemCard({
 }) {
     const isShared = item.owner_work_area
         ? item.owner_work_area.name.toLowerCase().includes('umum') ||
-          item.owner_work_area.name.toLowerCase().includes('shared')
+        item.owner_work_area.name.toLowerCase().includes('shared')
         : false;
 
     const canManage = user?.role === 'tkno_admin' || user?.role === 'tko';
@@ -39,18 +39,21 @@ export default function ItemCard({
                 {/* Badges on image */}
                 <div className="absolute top-2 left-2 flex flex-col gap-1">
                     {item.mn_code ? (
-                        <span className="badge badge-primary font-mono text-[11px] font-bold shadow-sm">
-                            MN: {item.mn_code}
-                        </span>
-                    ) : (
-                        <span className="badge badge-neutral text-white font-mono text-[11px] font-bold shadow-sm">
-                            NO MN
-                        </span>
-                    )}
+    <span className="badge badge-primary font-mono text-[11px] font-bold shadow-sm">
+        MN: {item.mn_code}
+    </span>
+) : item.no_po ? (
+    <span className="badge badge-secondary font-mono text-[11px] font-bold shadow-sm">
+        PO: {item.no_po}
+    </span>
+) : (
+    <span className="badge badge-neutral text-white font-mono text-[11px] font-bold shadow-sm">
+        NO MN
+    </span>
+)}
 
-                    <span className={`badge badge-sm font-semibold shadow-sm ${
-                        item.item_category === 'tool' ? 'badge-secondary text-white' : 'badge-ghost bg-base-100/90 text-base-content'
-                    }`}>
+                    <span className={`badge badge-sm font-semibold shadow-sm ${item.item_category === 'tool' ? 'badge-secondary text-white' : 'badge-ghost bg-base-100/90 text-base-content'
+                        }`}>
                         {item.item_category === 'tool' ? '🔧 Tool (Kembali)' : '📦 Consumable'}
                     </span>
 
@@ -107,9 +110,8 @@ export default function ItemCard({
                     <div className="bg-base-200/60 rounded-lg p-2.5 border border-base-300 text-xs mb-3 space-y-1">
                         <div className="flex items-center justify-between">
                             <span className="text-base-content/70">Stok Sistem:</span>
-                            <span className={`font-mono font-bold text-sm ${
-                                item.system_stock === 0 ? 'text-error' : isLowStock ? 'text-warning' : 'text-success'
-                            }`}>
+                            <span className={`font-mono font-bold text-sm ${item.system_stock === 0 ? 'text-error' : isLowStock ? 'text-warning' : 'text-success'
+                                }`}>
                                 {item.system_stock} {item.unit || 'PCS'}
                             </span>
                         </div>
@@ -137,8 +139,8 @@ export default function ItemCard({
                         {item.system_stock <= 0
                             ? 'Stok Habis'
                             : item.item_category === 'tool'
-                            ? '+ Pinjam Alat'
-                            : '+ Ambil Material'}
+                                ? '+ Pinjam Alat'
+                                : '+ Ambil Material'}
                     </button>
 
                     {canManage && (

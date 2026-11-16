@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 export default function CheckoutDrawer({
     isOpen,
@@ -15,23 +15,20 @@ export default function CheckoutDrawer({
     const fileInputRef = useRef(null);
     const [photoPreview, setPhotoPreview] = useState(null);
 
-    // Otomatis deteksi jenis transaksi: jika ada item tools -> otomatis Peminjaman Tools (akan ada pengembalian)
-    const hasTools = cartItems.some((item) => item.item_category === 'tool');
-    const autoTransactionType = hasTools ? 'tool_borrow' : 'material_take';
+    // Filter item berdasarkan kategori
+    const toolItems = cartItems.filter((item) => item.item_category === 'tool');
+    const materialItems = cartItems.filter((item) => item.item_category !== 'tool');
+
+    const hasTools = toolItems.length > 0;
+    const hasMaterials = materialItems.length > 0;
 
     const { data, setData, post, processing, errors, reset } = useForm({
-        transaction_type: autoTransactionType,
         purpose_notes: '',
         checkout_photo: null,
         items: cartItems.map((item) => ({ id: item.id, quantity: item.quantity })),
     });
 
-    // Update otomatis jenis transaksi saat keranjang bertambah/berkurang
-    useEffect(() => {
-        setData('transaction_type', autoTransactionType);
-    }, [hasTools]);
-
-    // Check if any item triggers cross-area approval
+    // Cek apakah ada item yang membutuhkan approval
     const requiresApproval = cartItems.some((item) => item.requires_approval);
 
     const handlePhotoChange = (e) => {
@@ -59,7 +56,6 @@ export default function CheckoutDrawer({
         }));
 
         data.items = payloadItems;
-        data.transaction_type = autoTransactionType;
 
         post(route('transactions.store'), {
             forceFormData: true,
@@ -106,35 +102,58 @@ export default function CheckoutDrawer({
                             </div>
                         ) : (
                             <form id="checkout-form" onSubmit={handleSubmit} className="space-y-4">
-                                {/* Otomatis Status Transaksi Card (menggantikan radio pilihan) */}
-                                <div className={`p-3.5 rounded-xl border text-xs flex items-start gap-3 shadow-xs ${
-                                    hasTools
-                                        ? 'bg-purple-50/70 border-purple-200 text-purple-900'
-                                        : 'bg-blue-50/70 border-blue-200 text-blue-900'
-                                }`}>
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0 ${
-                                        hasTools ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'
-                                    }`}>
-                                        {hasTools ? '🔧' : '📦'}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
+                                {/* Ringkasan Pemisahan Log Transaksi Otomatis */}
+                                {hasTools && hasMaterials ? (
+                                    <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50/70 text-xs text-blue-950 shadow-xs space-y-2">
                                         <div className="flex items-center gap-2">
-                                            <span className="font-bold text-xs">
-                                                {hasTools ? 'Peminjaman Tools / Alat Kerja' : 'Pengambilan Material / Sparepart'}
-                                            </span>
-                                            <span className={`badge badge-xs font-semibold ${
-                                                hasTools ? 'badge-secondary text-white' : 'badge-primary text-white'
-                                            }`}>
-                                                Otomatis
-                                            </span>
+                                            <span className="text-base shrink-0">⚡</span>
+                                            <span className="font-bold">Log Transaksi Terpisah Otomatis</span>
                                         </div>
-                                        <p className="text-[11px] mt-0.5 opacity-90 leading-relaxed">
-                                            {hasTools
-                                                ? 'Keranjang terdeteksi memuat alat kerja (Tools). Sistem secara otomatis menetapkan status peminjaman dan wajib dikembalikan beserta foto bukti.'
-                                                : 'Seluruh item merupakan sparepart consumable (habis pakai). Pengambilan langsung memotong stok.'}
+                                        <p className="text-[11px] leading-relaxed text-blue-900">
+                                            Keranjang ini memuat item alat kerja dan material sparepart. Sistem akan secara otomatis memecah menjadi <b>2 log transaksi terpisah</b>:
                                         </p>
+                                        <div className="grid grid-cols-2 gap-2 pt-1">
+                                            <div className="p-2 rounded-lg bg-purple-100/70 border border-purple-200 text-purple-900">
+                                                <span className="font-bold block text-[11px]">🔧 {toolItems.length} Alat (Pinjam)</span>
+                                                <span className="text-[10px] text-purple-700">Masuk daftar pinjam & ada pengembalian</span>
+                                            </div>
+                                            <div className="p-2 rounded-lg bg-blue-100/70 border border-blue-200 text-blue-900">
+                                                <span className="font-bold block text-[11px]">📦 {materialItems.length} Material</span>
+                                                <span className="text-[10px] text-blue-700">Masuk riwayat pengambilan langsung</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
+                                ) : hasTools ? (
+                                    <div className="p-3.5 rounded-xl border border-purple-200 bg-purple-50/70 text-xs text-purple-950 shadow-xs flex items-start gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center text-base shrink-0">
+                                            🔧
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold text-xs">Peminjaman Tools / Alat Kerja</span>
+                                                <span className="badge badge-secondary badge-xs text-white">Otomatis</span>
+                                            </div>
+                                            <p className="text-[11px] mt-0.5 text-purple-900 leading-relaxed">
+                                                Barang yang dipinjam akan masuk ke <b>daftar alat sedang dipinjam</b> dan wajib dikembalikan nanti beserta foto bukti.
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50/70 text-xs text-blue-950 shadow-xs flex items-start gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center text-base shrink-0">
+                                            📦
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold text-xs">Pengambilan Material / Sparepart</span>
+                                                <span className="badge badge-primary badge-xs text-white">Otomatis</span>
+                                            </div>
+                                            <p className="text-[11px] mt-0.5 text-blue-900 leading-relaxed">
+                                                Barang consumable habis pakai, stok langsung dipotong dan masuk ke <b>riwayat log pengambilan</b>.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Cross-Area Approval Alert Banner */}
                                 {requiresApproval ? (
@@ -163,81 +182,164 @@ export default function CheckoutDrawer({
                                     </div>
                                 )}
 
-                                {/* Items list */}
-                                <div className="space-y-2">
+                                {/* Daftar Barang Berdasarkan Kelompok Log */}
+                                <div className="space-y-4">
                                     <div className="flex items-center justify-between text-xs font-bold text-slate-700 px-1">
-                                        <span>Daftar Barang & Satuan</span>
+                                        <span>Daftar Barang Checkout</span>
                                         <button
                                             type="button"
                                             onClick={onClearCart}
                                             className="text-red-500 hover:underline text-[11px]"
                                         >
-                                            Kosongkan
+                                            Kosongkan Keranjang
                                         </button>
                                     </div>
 
-                                    {cartItems.map((item) => (
-                                        <div
-                                            key={item.id}
-                                            className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-3 text-xs"
-                                        >
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-1.5 mb-0.5">
-                                                    <span className="badge badge-primary badge-xs font-mono font-bold">
-                                                        {item.mn_code || 'NO MN'}
-                                                    </span>
-                                                    <span className={`badge badge-xs font-medium ${
-                                                        item.item_category === 'tool' ? 'badge-secondary text-white' : 'badge-ghost'
-                                                    }`}>
-                                                        {item.item_category === 'tool' ? '🔧 Tool' : '📦 Part'}
-                                                    </span>
-                                                    <span className="badge badge-outline badge-xs font-semibold text-slate-600">
-                                                        {item.unit || 'PCS'}
-                                                    </span>
-                                                </div>
-                                                <h4 className="font-bold text-slate-800 truncate">
-                                                    {item.item_name}
-                                                </h4>
-                                                <span className="text-[11px] text-slate-500">
-                                                    Tersedia: {item.system_stock} {item.unit || 'PCS'}
+                                    {/* Sub-Group 1: Alat yang Dipinjam (Wajib Kembali) */}
+                                    {toolItems.length > 0 && (
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 text-xs font-bold text-purple-900 bg-purple-50 px-2.5 py-1.5 rounded-lg border border-purple-200">
+                                                <span>🔧 Peminjaman Alat ({toolItems.length} Item)</span>
+                                                <span className="text-[10px] text-purple-700 font-normal ml-auto">
+                                                    (Ada Pengembalian)
                                                 </span>
                                             </div>
 
-                                            {/* Qty Controls */}
-                                            <div className="flex items-center gap-1.5 shrink-0">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                                                    className="btn btn-xs btn-circle btn-outline border-slate-300 hover:bg-slate-200"
+                                            {toolItems.map((item) => (
+                                                <div
+                                                    key={item.id}
+                                                    className="p-3 bg-purple-50/30 rounded-xl border border-purple-200/80 flex items-center justify-between gap-3 text-xs"
                                                 >
-                                                    -
-                                                </button>
-                                                <div className="flex flex-col items-center justify-center">
-                                                    <span className="font-mono font-bold text-xs text-slate-800">
-                                                        {item.quantity}
-                                                    </span>
-                                                    <span className="text-[9px] text-slate-400 font-semibold leading-none">
-                                                        {item.unit || 'PCS'}
-                                                    </span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-1.5 mb-0.5">
+                                                            <span className="badge badge-primary badge-xs font-mono font-bold">
+                                                                {item.mn_code || 'NO MN'}
+                                                            </span>
+                                                            <span className="badge badge-secondary badge-xs text-white">
+                                                                Tool
+                                                            </span>
+                                                            <span className="badge badge-outline badge-xs font-semibold text-slate-600">
+                                                                {item.unit || 'PCS'}
+                                                            </span>
+                                                        </div>
+                                                        <h4 className="font-bold text-slate-800 truncate">
+                                                            {item.item_name}
+                                                        </h4>
+                                                        <span className="text-[11px] text-slate-500">
+                                                            Tersedia: {item.system_stock} {item.unit || 'PCS'}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Qty Controls */}
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+                                                            className="btn btn-xs btn-circle btn-outline border-slate-300 hover:bg-slate-200"
+                                                        >
+                                                            -
+                                                        </button>
+                                                        <div className="flex flex-col items-center justify-center">
+                                                            <span className="font-mono font-bold text-xs text-slate-800">
+                                                                {item.quantity}
+                                                            </span>
+                                                            <span className="text-[9px] text-slate-400 font-semibold leading-none">
+                                                                {item.unit || 'PCS'}
+                                                            </span>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                                                            disabled={item.quantity >= item.system_stock}
+                                                            className="btn btn-xs btn-circle btn-outline border-slate-300 hover:bg-slate-200"
+                                                        >
+                                                            +
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onRemoveFromCart(item.id)}
+                                                            className="btn btn-xs btn-ghost text-red-500 ml-1"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                                                    disabled={item.quantity >= item.system_stock}
-                                                    className="btn btn-xs btn-circle btn-outline border-slate-300 hover:bg-slate-200"
-                                                >
-                                                    +
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onRemoveFromCart(item.id)}
-                                                    className="btn btn-xs btn-ghost text-red-500 ml-1"
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
+                                            ))}
                                         </div>
-                                    ))}
+                                    )}
+
+                                    {/* Sub-Group 2: Material / Sparepart (Pengambilan) */}
+                                    {materialItems.length > 0 && (
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 text-xs font-bold text-blue-900 bg-blue-50 px-2.5 py-1.5 rounded-lg border border-blue-200">
+                                                <span>📦 Pengambilan Material ({materialItems.length} Item)</span>
+                                                <span className="text-[10px] text-blue-700 font-normal ml-auto">
+                                                    (Habis Pakai)
+                                                </span>
+                                            </div>
+
+                                            {materialItems.map((item) => (
+                                                <div
+                                                    key={item.id}
+                                                    className="p-3 bg-blue-50/30 rounded-xl border border-blue-200/80 flex items-center justify-between gap-3 text-xs"
+                                                >
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-1.5 mb-0.5">
+                                                            <span className="badge badge-primary badge-xs font-mono font-bold">
+                                                                {item.mn_code || 'NO MN'}
+                                                            </span>
+                                                            <span className="badge badge-ghost badge-xs">
+                                                                Part
+                                                            </span>
+                                                            <span className="badge badge-outline badge-xs font-semibold text-slate-600">
+                                                                {item.unit || 'PCS'}
+                                                            </span>
+                                                        </div>
+                                                        <h4 className="font-bold text-slate-800 truncate">
+                                                            {item.item_name}
+                                                        </h4>
+                                                        <span className="text-[11px] text-slate-500">
+                                                            Tersedia: {item.system_stock} {item.unit || 'PCS'}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Qty Controls */}
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+                                                            className="btn btn-xs btn-circle btn-outline border-slate-300 hover:bg-slate-200"
+                                                        >
+                                                            -
+                                                        </button>
+                                                        <div className="flex flex-col items-center justify-center">
+                                                            <span className="font-mono font-bold text-xs text-slate-800">
+                                                                {item.quantity}
+                                                            </span>
+                                                            <span className="text-[9px] text-slate-400 font-semibold leading-none">
+                                                                {item.unit || 'PCS'}
+                                                            </span>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                                                            disabled={item.quantity >= item.system_stock}
+                                                            className="btn btn-xs btn-circle btn-outline border-slate-300 hover:bg-slate-200"
+                                                        >
+                                                            +
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onRemoveFromCart(item.id)}
+                                                            className="btn btn-xs btn-ghost text-red-500 ml-1"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Purpose Notes */}
@@ -319,11 +421,17 @@ export default function CheckoutDrawer({
                                 form="checkout-form"
                                 disabled={processing || cartItems.length === 0}
                                 className={`btn btn-sm text-white font-semibold flex-1 shadow-sm ${
-                                    hasTools ? 'btn-secondary' : 'btn-primary'
+                                    hasTools && hasMaterials
+                                        ? 'btn-primary bg-gradient-to-r from-purple-600 to-blue-600 border-0'
+                                        : hasTools
+                                        ? 'btn-secondary'
+                                        : 'btn-primary'
                                 }`}
                             >
                                 {processing ? (
                                     <span className="loading loading-spinner loading-xs"></span>
+                                ) : hasTools && hasMaterials ? (
+                                    'Proses Checkout (Pisah 2 Log Otomatis) 🚀'
                                 ) : hasTools ? (
                                     'Kirim Peminjaman Alat (Wajib Kembali) 🔧'
                                 ) : (

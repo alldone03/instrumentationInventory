@@ -20,6 +20,7 @@ class UpdateItemRequest extends FormRequest
             'item_category' => ['required', 'in:consumable_part,tool'],
             'type' => ['required', 'string', 'max:100'],
             'unit' => ['nullable', 'string', 'max:50'],
+            'no_po' => ['nullable', 'string', 'max:50'],
             'sap_classification' => ['nullable', 'string', 'max:100'],
             'sap_status' => ['nullable', 'in:PD,ND,VB'],
             'reorder_point' => ['nullable', 'integer', 'min:0'],

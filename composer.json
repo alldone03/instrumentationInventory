@@ -50,7 +50,7 @@
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "php artisan serve & yarn dev"
+            "yarn concurrently \"php artisan serve\" \"yarn dev\""
         ],
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",
