@@ -1,5 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
+import { compressImages } from '@/Utils/imageCompressor';
 
 export default function ItemModal({ isOpen, onClose, item = null, locations = [], workAreas = [], types = [], units = [], sapClassifications = [] }) {
     if (!isOpen) return null;
@@ -20,6 +21,7 @@ export default function ItemModal({ isOpen, onClose, item = null, locations = []
     const [activeTab, setActiveTab] = useState('workshop'); // 'workshop', 'sap', 'photos'
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [previewUrls, setPreviewUrls] = useState([]);
+    const [isCompressing, setIsCompressing] = useState(false);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         mn_code: item?.mn_code ?? '',
@@ -71,13 +73,35 @@ export default function ItemModal({ isOpen, onClose, item = null, locations = []
         setPreviewUrls([]);
     }, [item]);
 
-    const handleFileChange = (e) => {
+    const handleFileChange = async (e) => {
         const files = Array.from(e.target.files);
-        setSelectedFiles(files);
-        setData('images', files);
+        if (!files.length) return;
 
-        const urls = files.map((file) => URL.createObjectURL(file));
-        setPreviewUrls(urls);
+        setIsCompressing(true);
+        try {
+            // Compress images client-side before setting to state/form
+            const compressedFiles = await compressImages(files, {
+                maxWidth: 1600,
+                maxHeight: 1600,
+                quality: 0.75,
+                outputType: 'image/jpeg',
+            });
+
+            setSelectedFiles(compressedFiles);
+            setData('images', compressedFiles);
+
+            const urls = compressedFiles.map((file) => URL.createObjectURL(file));
+            setPreviewUrls(urls);
+        } catch (error) {
+            console.error('Error compressing images:', error);
+            // Fallback to original files if error occurs
+            setSelectedFiles(files);
+            setData('images', files);
+            const urls = files.map((file) => URL.createObjectURL(file));
+            setPreviewUrls(urls);
+        } finally {
+            setIsCompressing(false);
+        }
     };
 
     const handleSubmit = (e) => {
@@ -485,11 +509,18 @@ export default function ItemModal({ isOpen, onClose, item = null, locations = []
                                     type="file"
                                     multiple
                                     accept="image/*"
+                                    disabled={isCompressing}
                                     onChange={handleFileChange}
                                     className="file-input file-input-bordered file-input-sm w-full"
                                 />
+                                {isCompressing && (
+                                    <div className="flex items-center gap-2 mt-1.5 text-xs text-primary font-medium">
+                                        <span className="loading loading-spinner loading-xs"></span>
+                                        <span>Mengompres foto sebelum diunggah...</span>
+                                    </div>
+                                )}
                                 <span className="text-[11px] text-base-content/60 mt-1 block">
-                                    Pilih satu atau lebih file foto (JPG, PNG, WebP maks 5MB per file).
+                                    Pilih satu atau lebih file foto (foto akan otomatis dioptimasi & dikompresi agar ukuran kecil dan cepat diunggah).
                                 </span>
                             </div>
 
@@ -559,10 +590,10 @@ export default function ItemModal({ isOpen, onClose, item = null, locations = []
                         </button>
                         <button
                             type="submit"
-                            disabled={processing}
+                            disabled={processing || isCompressing}
                             className="btn btn-sm btn-primary font-semibold text-white px-6"
                         >
-                            {processing ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Tambah Barang'}
+                            {isCompressing ? 'Mengompres Foto...' : processing ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Tambah Barang'}
                         </button>
                     </div>
                 </form>
