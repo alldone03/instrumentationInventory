@@ -3,6 +3,7 @@
 use App\Http\Controllers\InventoryTransactionController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\ItemImageController;
+use App\Http\Controllers\LocationController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +28,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Item Images
     Route::post('/item-images/{image}/set-primary', [ItemImageController::class, 'setPrimary'])->name('item-images.set-primary');
     Route::delete('/item-images/{image}', [ItemImageController::class, 'destroy'])->name('item-images.destroy');
+
+    // Locations Master CRUD
+    Route::post('/locations', [LocationController::class, 'store'])->name('locations.store');
+    Route::put('/locations/{location}', [LocationController::class, 'update'])->name('locations.update');
+    Route::delete('/locations/{location}', [LocationController::class, 'destroy'])->name('locations.destroy');
 
     // Inventory Transactions, Checkout, Approvals & Logs
     Route::get('/transactions', [InventoryTransactionController::class, 'index'])->name('transactions.index');

@@ -37,7 +37,7 @@ class ItemController extends Controller
         });
         $no_po = $request->input('no_po');
 
-        $locations = Location::orderBy('name')->get(['id', 'name']);
+        $locations = Location::withCount('items')->orderBy('name')->get();
         $workAreas = WorkArea::orderBy('name')->get(['id', 'name']);
 
         $types = [

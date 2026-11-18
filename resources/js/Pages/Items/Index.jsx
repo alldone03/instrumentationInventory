@@ -1,6 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import ItemCard from '@/Components/Catalog/ItemCard';
 import ItemModal from '@/Components/Catalog/ItemModal';
+import LocationManagementModal from '@/Components/Catalog/LocationManagementModal';
 import PhotoGalleryModal from '@/Components/Catalog/PhotoGalleryModal';
 import StockOpnameModal from '@/Components/Catalog/StockOpnameModal';
 import CheckoutDrawer from '@/Components/Cart/CheckoutDrawer';
@@ -38,6 +39,8 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
     // Modals
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
+
+    const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
 
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [galleryItem, setGalleryItem] = useState(null);
@@ -171,6 +174,18 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
                     </div>
 
                     <div className="flex items-center flex-wrap gap-2.5">
+                        {/* Location Management Button for TKO and Admin */}
+                        {(user?.role === 'tkno_admin' || user?.role === 'tko') && (
+                            <button
+                                onClick={() => setIsLocationModalOpen(true)}
+                                className="btn btn-outline btn-sm font-semibold gap-1.5 hover:bg-slate-700 hover:text-white transition"
+                                title="Kelola Lokasi & Rak Gudang"
+                            >
+                                <span>📍</span>
+                                <span>Kelola Lokasi Rak</span>
+                            </button>
+                        )}
+
                         {/* SAP Export Button */}
                         <a
                             href={route('items.export-sap')}
@@ -384,6 +399,12 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
             </div>
 
             {/* Modals & Drawer */}
+            <LocationManagementModal
+                isOpen={isLocationModalOpen}
+                onClose={() => setIsLocationModalOpen(false)}
+                locations={locations}
+            />
+
             <ItemModal
                 isOpen={isItemModalOpen}
                 item={editingItem}
