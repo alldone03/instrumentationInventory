@@ -23,13 +23,56 @@ export default function ItemModal({ isOpen, onClose, item = null, locations = []
     const [previewUrls, setPreviewUrls] = useState([]);
     const [isCompressing, setIsCompressing] = useState(false);
 
+    const getCurrentDateTimeLocal = () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+
+    const getInitialCreateData = () => {
+        let history = {};
+        try {
+            const saved = localStorage.getItem('item_modal_last_selections');
+            if (saved) {
+                history = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.error('Failed to parse saved item selections:', e);
+        }
+
+        return {
+            mn_code: '',
+            item_name: '',
+            sap_description: '',
+            item_category: history.item_category ?? 'consumable_part',
+            type: history.type ?? (types[0] || 'Control Valve'),
+            unit: history.unit ?? 'Pieces (PCS)',
+            no_po: '',
+            sap_classification: history.sap_classification ?? '',
+            sap_status: history.sap_status ?? '',
+            reorder_point: 0,
+            min_lot_size: 0,
+            system_stock: 0,
+            actual_stock: 0,
+            last_stock_opname_at: getCurrentDateTimeLocal(),
+            location_id: history.location_id ?? (locations[0]?.id || ''),
+            owner_work_area_id: history.owner_work_area_id ?? (workAreas[0]?.id || ''),
+            notes: '',
+            images: [],
+        };
+    };
+
     const { data, setData, post, processing, errors, reset } = useForm({
         mn_code: item?.mn_code ?? '',
         item_name: item?.item_name ?? '',
         sap_description: item?.sap_description ?? '',
         item_category: item?.item_category ?? 'consumable_part',
         type: item?.type ?? (types[0] || 'Control Valve'),
-        unit: item?.unit ?? 'Eaches (EA)',
+        unit: item?.unit ?? 'Pieces (PCS)',
         no_po: item?.no_po ?? '',
         sap_classification: item?.sap_classification ?? '',
         sap_status: item?.sap_status ?? '',
@@ -37,7 +80,7 @@ export default function ItemModal({ isOpen, onClose, item = null, locations = []
         min_lot_size: item?.min_lot_size ?? 0,
         system_stock: item?.system_stock ?? 0,
         actual_stock: item?.actual_stock ?? 0,
-        last_stock_opname_at: item?.last_stock_opname_at ? item.last_stock_opname_at.slice(0, 16) : '',
+        last_stock_opname_at: item?.last_stock_opname_at ? item.last_stock_opname_at.slice(0, 16) : getCurrentDateTimeLocal(),
         location_id: item?.location_id ?? (locations[0]?.id || ''),
         owner_work_area_id: item?.owner_work_area_id ?? (workAreas[0]?.id || ''),
         notes: item?.notes ?? '',
@@ -60,18 +103,18 @@ export default function ItemModal({ isOpen, onClose, item = null, locations = []
                 min_lot_size: item.min_lot_size ?? 0,
                 system_stock: item.system_stock ?? 0,
                 actual_stock: item.actual_stock ?? 0,
-                last_stock_opname_at: item.last_stock_opname_at ? item.last_stock_opname_at.slice(0, 16) : '',
+                last_stock_opname_at: item.last_stock_opname_at ? item.last_stock_opname_at.slice(0, 16) : getCurrentDateTimeLocal(),
                 location_id: item.location_id ?? (locations[0]?.id || ''),
                 owner_work_area_id: item.owner_work_area_id ?? (workAreas[0]?.id || ''),
                 notes: item.notes ?? '',
                 images: [],
             });
         } else {
-            reset();
+            setData(getInitialCreateData());
         }
         setSelectedFiles([]);
         setPreviewUrls([]);
-    }, [item]);
+    }, [item, isOpen]);
 
     const handleFileChange = async (e) => {
         const files = Array.from(e.target.files);
@@ -104,8 +147,28 @@ export default function ItemModal({ isOpen, onClose, item = null, locations = []
         }
     };
 
+    const saveSelectionHistory = () => {
+        try {
+            const historyToSave = {
+                item_category: data.item_category,
+                type: data.type,
+                unit: data.unit,
+                location_id: data.location_id,
+                owner_work_area_id: data.owner_work_area_id,
+                sap_classification: data.sap_classification,
+                sap_status: data.sap_status,
+            };
+            localStorage.setItem('item_modal_last_selections', JSON.stringify(historyToSave));
+        } catch (e) {
+            console.error('Failed to save selection history:', e);
+        }
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
+
+        // Save selected dropdown history (kategori, type, unit, lokasi, work area, dsb.)
+        saveSelectionHistory();
 
         if (isEdit) {
             // Use POST with FormData to support file upload in Laravel
