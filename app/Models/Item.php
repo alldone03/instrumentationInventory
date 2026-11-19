@@ -21,6 +21,7 @@ class Item extends Model
         'type',
         'unit',
         'no_po',
+        'po_numbers',
         'sap_classification',
         'sap_status',
         'reorder_point',
@@ -39,6 +40,7 @@ class Item extends Model
         'system_stock' => 'integer',
         'actual_stock' => 'integer',
         'last_stock_opname_at' => 'datetime',
+        'po_numbers' => 'array',
     ];
 
     protected $appends = [
@@ -116,7 +118,9 @@ class Item extends Model
                 $query->where(function ($q) use ($search) {
                     $q->where('item_name', 'like', "%{$search}%")
                         ->orWhere('sap_description', 'like', "%{$search}%")
-                        ->orWhere('mn_code', 'like', "%{$search}%");
+                        ->orWhere('mn_code', 'like', "%{$search}%")
+                        ->orWhere('no_po', 'like', "%{$search}%")
+                        ->orWhere('po_numbers', 'like', "%{$search}%");
                 });
             })
             ->when($filters['type'] ?? null, function (Builder $query, $type) {

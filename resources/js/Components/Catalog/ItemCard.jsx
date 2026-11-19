@@ -21,6 +21,16 @@ export default function ItemCard({
 
     const isLowStock = item.system_stock <= (item.reorder_point || 0);
 
+    // Ambil nomor PO dan tanggal kedatangan dari po_numbers atau no_po
+    const poList = Array.isArray(item.po_numbers) ? item.po_numbers : [];
+    const validPoItem = poList.find((p) => p && p.number && p.number.trim() !== '');
+    const poNumber = validPoItem ? validPoItem.number.trim() : (item.no_po && item.no_po.trim() !== '' ? item.no_po.trim() : null);
+
+    const validDateItem = poList.find((p) => p && p.date && p.date.trim() !== '');
+    const poDate = validDateItem ? validDateItem.date.trim() : null;
+
+    const totalPoCount = poList.filter((p) => p && p.number && p.number.trim() !== '').length;
+
     return (
         <div className={`card bg-base-100 shadow-md hover:shadow-xl transition-all duration-200 border flex flex-col justify-between overflow-hidden group ${isSelected ? 'border-primary ring-2 ring-primary/40' : 'border-base-300'}`}>
             {/* Top Media Section */}
@@ -58,18 +68,23 @@ export default function ItemCard({
                 )}
 
                 {/* Badges on image */}
-                <div className="absolute top-2 left-2 flex flex-col gap-1">
-                    {item.mn_code ? (
+                <div className="absolute top-2 left-2 flex flex-col gap-1 max-w-[80%]">
+                    {item.mn_code && item.mn_code.trim() !== '' ? (
                         <span className="badge badge-primary font-mono text-[11px] font-bold shadow-sm">
                             MN: {item.mn_code}
                         </span>
-                    ) : item.no_po ? (
-                        <span className="badge badge-secondary font-mono text-[11px] font-bold shadow-sm">
-                            PO: {item.no_po}
+                    ) : poNumber ? (
+                        <span className="badge badge-secondary font-mono text-[11px] font-bold shadow-sm truncate">
+                            PO: {poNumber}
+                            {totalPoCount > 1 ? ` (+${totalPoCount - 1})` : ''}
+                        </span>
+                    ) : poDate ? (
+                        <span className="badge badge-warning text-warning-content font-mono text-[11px] font-bold shadow-sm truncate">
+                            📅 {poDate}
                         </span>
                     ) : (
                         <span className="badge badge-neutral text-white font-mono text-[11px] font-bold shadow-sm">
-                            NO MN
+                            Belum lengkap
                         </span>
                     )}
 
@@ -112,6 +127,17 @@ export default function ItemCard({
                         <p className="text-xs text-base-content/60 font-mono line-clamp-1 mb-2">
                             {item.sap_description}
                         </p>
+                    )}
+
+                    {/* PO Numbers list if available */}
+                    {item.po_numbers && item.po_numbers.length > 0 && item.po_numbers.some(p => p.number || p.date) && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                            {item.po_numbers.map((p, idx) => (p.number || p.date) && (
+                                <span key={idx} className="badge badge-xs badge-outline font-mono text-[10px] py-1.5 px-2">
+                                    PO: {p.number || '-'}{p.date ? ` (${p.date})` : ''}
+                                </span>
+                            ))}
+                        </div>
                     )}
 
                     {/* Ownership Area Badge */}

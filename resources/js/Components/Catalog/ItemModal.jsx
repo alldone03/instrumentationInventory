@@ -52,6 +52,7 @@ export default function ItemModal({ isOpen, onClose, item = null, user = null, l
             type: history.type ?? (types[0] || 'Control Valve'),
             unit: history.unit ?? 'Pieces (PCS)',
             no_po: '',
+            po_numbers: [{ number: '', date: '' }],
             sap_classification: history.sap_classification ?? '',
             sap_status: history.sap_status ?? '',
             reorder_point: 0,
@@ -66,6 +67,16 @@ export default function ItemModal({ isOpen, onClose, item = null, user = null, l
         };
     };
 
+    const normalizePoNumbers = (itemData) => {
+        if (itemData?.po_numbers && Array.isArray(itemData.po_numbers) && itemData.po_numbers.length > 0) {
+            return itemData.po_numbers;
+        }
+        if (itemData?.no_po) {
+            return [{ number: itemData.no_po, date: '' }];
+        }
+        return [{ number: '', date: '' }];
+    };
+
     const { data, setData, post, processing, errors, reset } = useForm({
         mn_code: item?.mn_code ?? '',
         item_name: item?.item_name ?? '',
@@ -74,6 +85,7 @@ export default function ItemModal({ isOpen, onClose, item = null, user = null, l
         type: item?.type ?? (types[0] || 'Control Valve'),
         unit: item?.unit ?? 'Pieces (PCS)',
         no_po: item?.no_po ?? '',
+        po_numbers: normalizePoNumbers(item),
         sap_classification: item?.sap_classification ?? '',
         sap_status: item?.sap_status ?? '',
         reorder_point: item?.reorder_point ?? 0,
@@ -97,6 +109,7 @@ export default function ItemModal({ isOpen, onClose, item = null, user = null, l
                 type: item.type ?? (types[0] || 'Control Valve'),
                 unit: item.unit ?? 'Pieces (PCS)',
                 no_po: item.no_po ?? '',
+                po_numbers: normalizePoNumbers(item),
                 sap_classification: item.sap_classification ?? '',
                 sap_status: item.sap_status ?? '',
                 reorder_point: item.reorder_point ?? 0,
@@ -464,22 +477,83 @@ export default function ItemModal({ isOpen, onClose, item = null, user = null, l
                                 </span>
                             </div>
 
-                            <div>
-                                <label className="label py-1">
-                                    <span className="label-text font-bold text-xs text-base-content">
-                                        Nomor PO Code (Nullable)
-                                    </span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={data.no_po}
-                                    onChange={(e) => setData('no_po', e.target.value)}
-                                    placeholder="Contoh: 519870237840 (Kosongkan jika belum ada)"
-                                    className="input input-bordered input-sm w-full font-mono"
-                                />
-                                <span className="text-[11px] text-base-content/60 mt-1 block">
-                                    *Kosongkan bila barang/tools belum ada PO.
-                                </span>
+                            {/* Multi PO Inputs */}
+                            <div className="sm:col-span-2 p-3 bg-base-200/50 rounded-xl border border-base-300 space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <label className="font-bold text-xs text-base-content block">
+                                            Daftar Nomor PO & Tanggal PO (Nullable)
+                                        </label>
+                                        <span className="text-[11px] text-base-content/60 block">
+                                            Satu produk dapat memiliki banyak nomor PO beserta tanggal PO (contoh tanggal tulis manual: 19/11/2026).
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setData('po_numbers', [
+                                                ...(data.po_numbers || []),
+                                                { number: '', date: '' },
+                                            ]);
+                                        }}
+                                        className="btn btn-xs btn-outline btn-primary font-semibold gap-1"
+                                    >
+                                        + Tambah PO
+                                    </button>
+                                </div>
+
+                                <div className="space-y-2">
+                                    {(data.po_numbers || [{ number: '', date: '' }]).map((po, index) => (
+                                        <div key={index} className="flex items-center gap-2">
+                                            <div className="flex-1">
+                                                <input
+                                                    type="text"
+                                                    value={po.number || ''}
+                                                    onChange={(e) => {
+                                                        const updated = [...(data.po_numbers || [])];
+                                                        updated[index] = { ...updated[index], number: e.target.value };
+                                                        setData('po_numbers', updated);
+                                                        // Sync first PO to no_po for backward compatibility
+                                                        if (index === 0) {
+                                                            setData('no_po', e.target.value);
+                                                        }
+                                                    }}
+                                                    placeholder={`Nomor PO #${index + 1} (e.g. 519870237840)`}
+                                                    className="input input-bordered input-sm w-full font-mono text-xs"
+                                                />
+                                            </div>
+                                            <div className="w-40 sm:w-48">
+                                                <input
+                                                    type="text"
+                                                    value={po.date || ''}
+                                                    onChange={(e) => {
+                                                        const updated = [...(data.po_numbers || [])];
+                                                        updated[index] = { ...updated[index], date: e.target.value };
+                                                        setData('po_numbers', updated);
+                                                    }}
+                                                    placeholder="Tgl (e.g. 19/11/2026)"
+                                                    className="input input-bordered input-sm w-full font-mono text-xs"
+                                                />
+                                            </div>
+                                            {(data.po_numbers || []).length > 1 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const updated = (data.po_numbers || []).filter((_, i) => i !== index);
+                                                        setData('po_numbers', updated);
+                                                        if (index === 0) {
+                                                            setData('no_po', updated[0]?.number || '');
+                                                        }
+                                                    }}
+                                                    className="btn btn-xs btn-ghost btn-circle text-error hover:bg-error/10"
+                                                    title="Hapus baris PO ini"
+                                                >
+                                                    ✕
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
 
                             <div>

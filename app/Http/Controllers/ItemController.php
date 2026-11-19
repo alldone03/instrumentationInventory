@@ -107,6 +107,17 @@ class ItemController extends Controller
         $images = $request->file('images', []);
         unset($validated['images']);
 
+        // Filter valid po_numbers
+        if (isset($validated['po_numbers']) && is_array($validated['po_numbers'])) {
+            $filteredPo = array_values(array_filter($validated['po_numbers'], function ($po) {
+                return !empty(trim($po['number'] ?? '')) || !empty(trim($po['date'] ?? ''));
+            }));
+            $validated['po_numbers'] = !empty($filteredPo) ? $filteredPo : null;
+            if (!empty($filteredPo) && empty($validated['no_po'])) {
+                $validated['no_po'] = $filteredPo[0]['number'] ?? null;
+            }
+        }
+
         DB::transaction(function () use ($validated, $images) {
             $item = Item::create($validated);
 
@@ -130,6 +141,17 @@ class ItemController extends Controller
         $validated = $request->validated();
         $newImages = $request->file('images', []);
         unset($validated['images']);
+
+        // Filter valid po_numbers
+        if (isset($validated['po_numbers']) && is_array($validated['po_numbers'])) {
+            $filteredPo = array_values(array_filter($validated['po_numbers'], function ($po) {
+                return !empty(trim($po['number'] ?? '')) || !empty(trim($po['date'] ?? ''));
+            }));
+            $validated['po_numbers'] = !empty($filteredPo) ? $filteredPo : null;
+            if (!empty($filteredPo) && empty($validated['no_po'])) {
+                $validated['no_po'] = $filteredPo[0]['number'] ?? null;
+            }
+        }
 
         DB::transaction(function () use ($item, $validated, $newImages) {
             $item->update($validated);
@@ -205,9 +227,10 @@ class ItemController extends Controller
             fputs($handle, "\xEF\xBB\xBF");
 
             // Header matching workorder requirements:
-            // MN | Deskripsi | Deskripsi SAP | Klasifikasi | Status | Reorder point | Min lot size | Notes
+            // MN | PO Code | Deskripsi | Deskripsi SAP | Klasifikasi | Status | Reorder point | Min lot size | Notes
             fputcsv($handle, [
                 'MN',
+                'Nomor PO',
                 'Deskripsi',
                 'Deskripsi SAP',
                 'Klasifikasi',
@@ -237,8 +260,25 @@ class ItemController extends Controller
 
             $query->chunk(200, function ($items) use ($handle) {
                 foreach ($items as $item) {
+                    $poText = '';
+                    if (!empty($item->po_numbers) && is_array($item->po_numbers)) {
+                        $poList = [];
+                        foreach ($item->po_numbers as $po) {
+                            $num = trim($po['number'] ?? '');
+                            $dt = trim($po['date'] ?? '');
+                            if ($num || $dt) {
+                                $poList[] = $dt ? "{$num} ({$dt})" : $num;
+                            }
+                        }
+                        $poText = implode(', ', $poList);
+                    }
+                    if (!$poText) {
+                        $poText = $item->no_po ?? '';
+                    }
+
                     fputcsv($handle, [
                         $item->mn_code ?? 'NO MN',
+                        $poText,
                         $item->item_name,
                         $item->sap_description ?? '',
                         $item->sap_classification ?? '',
