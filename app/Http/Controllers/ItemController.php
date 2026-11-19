@@ -172,8 +172,13 @@ class ItemController extends Controller
         return redirect()->back()->with('success', 'Stok Opname berhasil diperbarui.');
     }
 
-    public function exportSap(): StreamedResponse
+    public function exportSap(Request $request): StreamedResponse
     {
+        $selectedIds = $request->input('ids');
+        if (is_string($selectedIds)) {
+            $selectedIds = array_filter(explode(',', $selectedIds));
+        }
+
         $headers = [
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="SAP_Items_Export_' . date('Ymd_His') . '.csv"',
@@ -182,7 +187,7 @@ class ItemController extends Controller
             'Expires' => '0',
         ];
 
-        return response()->stream(function () {
+        return response()->stream(function () use ($selectedIds) {
             $handle = fopen('php://output', 'w');
             // Write UTF-8 BOM so Excel opens it with proper encoding
             fputs($handle, "\xEF\xBB\xBF");
@@ -205,26 +210,30 @@ class ItemController extends Controller
                 'Notes',
             ]);
 
-            Item::with(['location', 'ownerWorkArea'])
-                ->chunk(200, function ($items) use ($handle) {
-                    foreach ($items as $item) {
-                        fputcsv($handle, [
-                            $item->mn_code ?? 'NO MN',
-                            $item->item_name,
-                            $item->sap_description ?? '',
-                            $item->sap_classification ?? '',
-                            $item->sap_status ?? '',
-                            $item->reorder_point,
-                            $item->min_lot_size,
-                            $item->unit ?? 'PCS',
-                            $item->system_stock,
-                            $item->actual_stock,
-                            $item->location?->name ?? '',
-                            $item->ownerWorkArea?->name ?? '',
-                            $item->notes ?? '',
-                        ]);
-                    }
-                });
+            $query = Item::with(['location', 'ownerWorkArea']);
+            if (!empty($selectedIds)) {
+                $query->whereIn('id', $selectedIds);
+            }
+
+            $query->chunk(200, function ($items) use ($handle) {
+                foreach ($items as $item) {
+                    fputcsv($handle, [
+                        $item->mn_code ?? 'NO MN',
+                        $item->item_name,
+                        $item->sap_description ?? '',
+                        $item->sap_classification ?? '',
+                        $item->sap_status ?? '',
+                        $item->reorder_point,
+                        $item->min_lot_size,
+                        $item->unit ?? 'PCS',
+                        $item->system_stock,
+                        $item->actual_stock,
+                        $item->location?->name ?? '',
+                        $item->ownerWorkArea?->name ?? '',
+                        $item->notes ?? '',
+                    ]);
+                }
+            });
 
             fclose($handle);
         }, 200, $headers);

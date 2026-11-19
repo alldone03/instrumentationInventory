@@ -2,7 +2,7 @@ import { router, useForm } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { compressImages } from '@/Utils/imageCompressor';
 
-export default function ItemModal({ isOpen, onClose, item = null, locations = [], workAreas = [], types = [], units = [], sapClassifications = [] }) {
+export default function ItemModal({ isOpen, onClose, item = null, user = null, locations = [], workAreas = [], types = [], units = [], sapClassifications = [] }) {
     if (!isOpen) return null;
 
     const defaultUnits = units.length > 0 ? units : [
@@ -361,14 +361,22 @@ export default function ItemModal({ isOpen, onClose, item = null, locations = []
                                     onChange={(e) => setData('owner_work_area_id', e.target.value)}
                                     className="select select-bordered  w-full"
                                 >
-                                    {workAreas.map((area) => (
-                                        <option key={area.id} value={area.id}>
-                                            {area.name}
-                                        </option>
-                                    ))}
+                                    {workAreas
+                                        .filter((area) => {
+                                            const isShop = area.name.toLowerCase().trim() === 'shop';
+                                            if (isShop) {
+                                                return user?.role === 'tkno_admin';
+                                            }
+                                            return true;
+                                        })
+                                        .map((area) => (
+                                            <option key={area.id} value={area.id}>
+                                                {area.name} {area.name.toLowerCase().trim() === 'shop' ? '(Only TKNO Admin)' : ''}
+                                            </option>
+                                        ))}
                                 </select>
                                 <span className="text-[11px] text-base-content/60 mt-1 block">
-                                    *Pilih "Umum / Shared" agar dapat diambil bebas tanpa persetujuan lintas-area.
+                                    *Pilih "Umum / Shared" agar dapat diambil bebas tanpa persetujuan lintas-area. Area "Shop" khusus dikelola oleh Super Admin (TKNO Admin).
                                 </span>
                             </div>
 

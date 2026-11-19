@@ -16,6 +16,7 @@ class WorkAreaSeeder extends Seeder
             'Phonska 4 dan NPK 2, 3, 4',
             'Bagging',
             'Umum / Shared',
+            'Shop',
         ];
 
         foreach ($areas as $name) {

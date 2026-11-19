@@ -3,8 +3,11 @@ export default function ItemCard({
     user,
     onAddToCart,
     onEdit,
+    onDelete,
     onStockOpname,
     onViewGallery,
+    isSelected = false,
+    onToggleSelect = null,
 }) {
     const isShared = item.owner_work_area
         ? item.owner_work_area.name.toLowerCase().includes('umum') ||
@@ -12,13 +15,14 @@ export default function ItemCard({
         : false;
 
     const canManage = user?.role === 'tkno_admin' || user?.role === 'tko';
+    const isTknoAdmin = user?.role === 'tkno_admin';
     const primaryImg = item.primary_image_url || item.images?.[0]?.image_url;
     const photoCount = item.images?.length || 0;
 
     const isLowStock = item.system_stock <= (item.reorder_point || 0);
 
     return (
-        <div className="card bg-base-100 shadow-md hover:shadow-xl transition-all duration-200 border border-base-300 flex flex-col justify-between overflow-hidden group">
+        <div className={`card bg-base-100 shadow-md hover:shadow-xl transition-all duration-200 border flex flex-col justify-between overflow-hidden group ${isSelected ? 'border-primary ring-2 ring-primary/40' : 'border-base-300'}`}>
             {/* Top Media Section */}
             <div className="relative w-full h-48 bg-base-200/80 overflow-hidden cursor-pointer" onClick={() => onViewGallery(item)}>
                 {primaryImg ? (
@@ -33,6 +37,23 @@ export default function ItemCard({
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                         <span className="text-[11px] font-medium">Klik untuk lihat foto</span>
+                    </div>
+                )}
+
+                {/* Checkbox for SAP selection (Admin) */}
+                {onToggleSelect && (
+                    <div
+                        className="absolute top-2 right-2 z-10"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <label className="cursor-pointer bg-base-100/90 backdrop-blur-xs p-1.5 rounded-lg border border-base-300 shadow-sm flex items-center gap-1 hover:bg-base-100">
+                            <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => onToggleSelect(item.id)}
+                                className="checkbox checkbox-primary checkbox-sm"
+                            />
+                        </label>
                     </div>
                 )}
 
@@ -99,6 +120,10 @@ export default function ItemCard({
                             <span className="badge badge-success badge-sm text-white font-medium text-[11px]">
                                 🌐 Umum / Shared (Bebas Ambil)
                             </span>
+                        ) : item.owner_work_area?.name?.toLowerCase().trim() === 'shop' ? (
+                            <span className="badge badge-error badge-sm text-white font-medium text-[11px]">
+                                ⚡ Area: Shop (TKNO Admin)
+                            </span>
                         ) : (
                             <span className="badge badge-info badge-outline badge-sm text-[11px] font-medium">
                                 🔒 Area: {item.owner_work_area?.name || 'Khusus'}
@@ -144,7 +169,7 @@ export default function ItemCard({
                     </button>
 
                     {canManage && (
-                        <div className="grid grid-cols-2 gap-1.5">
+                        <div className={`grid ${isTknoAdmin ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5`}>
                             <button
                                 onClick={() => onEdit(item)}
                                 className="btn btn-ghost btn-xs border border-base-300 text-xs font-medium"
@@ -157,6 +182,15 @@ export default function ItemCard({
                             >
                                 📋 Opname
                             </button>
+                            {isTknoAdmin && onDelete && (
+                                <button
+                                    onClick={() => onDelete(item)}
+                                    className="btn btn-ghost btn-xs border border-error/30 text-error hover:bg-error hover:text-white text-xs font-medium"
+                                    title="Hapus barang"
+                                >
+                                    🗑️ Hapus
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>

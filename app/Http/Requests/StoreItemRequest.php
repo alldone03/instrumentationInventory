@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\WorkArea;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreItemRequest extends FormRequest
@@ -29,7 +30,18 @@ class StoreItemRequest extends FormRequest
             'actual_stock' => ['nullable', 'integer', 'min:0'],
             'last_stock_opname_at' => ['nullable', 'date'],
             'location_id' => ['nullable', 'exists:locations,id'],
-            'owner_work_area_id' => ['required', 'exists:work_areas,id'],
+            'owner_work_area_id' => [
+                'required',
+                'exists:work_areas,id',
+                function ($attribute, $value, $fail) {
+                    $workArea = WorkArea::find($value);
+                    if ($workArea && strtolower(trim($workArea->name)) === 'shop') {
+                        if (!$this->user() || !$this->user()->isTknoAdmin()) {
+                            $fail('Area kepemilikan "Shop" hanya dapat dipilih dan dikelola oleh Super Admin (TKNO Admin).');
+                        }
+                    }
+                },
+            ],
             'notes' => ['nullable', 'string'],
             'images' => ['nullable', 'array'],
             'images.*' => ['file', 'image', 'max:5120'], // 5MB max

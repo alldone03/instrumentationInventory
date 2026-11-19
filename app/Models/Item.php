@@ -96,6 +96,11 @@ class Item extends Model
             return false;
         }
 
+        // Shop items are owned by Workshop / Super Admin (TKNO Admin must approve for other roles)
+        if (trim($ownerAreaName) === 'shop') {
+            return true;
+        }
+
         // If the user's work area matches the item's owner work area
         if ($user->work_area_id && (int)$this->owner_work_area_id === (int)$user->work_area_id) {
             return false;

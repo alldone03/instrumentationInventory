@@ -51,6 +51,47 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
     const [isCheckoutDrawerOpen, setIsCheckoutDrawerOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState(null);
 
+    // Selected products for SAP Export (TKNO Admin only)
+    const [selectedItemIds, setSelectedItemIds] = useState([]);
+
+    const toggleSelectItem = (id) => {
+        setSelectedItemIds((prev) =>
+            prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+        );
+    };
+
+    const handleSelectAllOnPage = () => {
+        if (!items.data) return;
+        const pageIds = items.data.map((item) => item.id);
+        const allSelected = pageIds.every((id) => selectedItemIds.includes(id));
+
+        if (allSelected) {
+            // Unselect all on this page
+            setSelectedItemIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+        } else {
+            // Select all on this page
+            setSelectedItemIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+        }
+    };
+
+    const handleClearSelected = () => {
+        setSelectedItemIds([]);
+    };
+
+    const handleDeleteItem = (item) => {
+        if (confirm(`Apakah Anda yakin ingin menghapus barang "${item.item_name}"? Tindakan ini tidak dapat dibatalkan.`)) {
+            router.delete(route('items.destroy', item.id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setToastMessage(`✓ Barang "${item.item_name}" berhasil dihapus`);
+                    setTimeout(() => {
+                        setToastMessage((current) => (current ? null : current));
+                    }, 3500);
+                },
+            });
+        }
+    };
+
     // Filter Trigger
     const applyFilters = (newFilters) => {
         router.get(
@@ -188,14 +229,30 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
 
                         {/* SAP Export Button */}
                         <a
-                            href={route('items.export-sap')}
-                            className="btn btn-outline btn-sm font-semibold gap-1.5 hover:bg-success hover:text-white hover:border-success transition"
-                            title="Unduh seluruh data sesuai format SAP"
+                            href={
+                                selectedItemIds.length > 0
+                                    ? `${route('items.export-sap')}?ids=${selectedItemIds.join(',')}`
+                                    : route('items.export-sap')
+                            }
+                            className={`btn btn-sm font-semibold gap-1.5 transition ${
+                                selectedItemIds.length > 0
+                                    ? 'btn-success text-white shadow-sm'
+                                    : 'btn-outline hover:bg-success hover:text-white hover:border-success'
+                            }`}
+                            title={
+                                selectedItemIds.length > 0
+                                    ? `Unduh ${selectedItemIds.length} produk terpilih sesuai format SAP`
+                                    : 'Unduh seluruh data sesuai format SAP'
+                            }
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                             </svg>
-                            <span>Export SAP (CSV)</span>
+                            <span>
+                                {selectedItemIds.length > 0
+                                    ? `Export SAP (${selectedItemIds.length} Dipilih)`
+                                    : 'Export SAP (CSV)'}
+                            </span>
                         </a>
 
                         {/* Add Item Button for TKO and Admin */}
@@ -338,6 +395,44 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
                     </form>
                 </div>
 
+                {/* Admin Multi-select Toolbar for SAP Export */}
+                {user?.role === 'tkno_admin' && items.data && items.data.length > 0 && (
+                    <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-2.5 bg-base-100 rounded-xl border border-base-300 shadow-xs text-xs">
+                        <div className="flex items-center gap-2">
+                            <span className="font-semibold text-base-content">
+                                Seleksi Ekspor SAP:
+                            </span>
+                            <button
+                                type="button"
+                                onClick={handleSelectAllOnPage}
+                                className="btn btn-xs btn-outline btn-primary"
+                            >
+                                {items.data.every((item) => selectedItemIds.includes(item.id))
+                                    ? 'Batalkan Seleksi Halaman Ini'
+                                    : 'Pilih Semua di Halaman Ini'}
+                            </button>
+                            {selectedItemIds.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={handleClearSelected}
+                                    className="btn btn-xs btn-ghost text-error"
+                                >
+                                    Reset Pilihan ({selectedItemIds.length})
+                                </button>
+                            )}
+                        </div>
+                        <div className="text-base-content/60 text-[11px]">
+                            {selectedItemIds.length > 0 ? (
+                                <span className="text-primary font-bold">
+                                    {selectedItemIds.length} produk siap diekspor ke SAP
+                                </span>
+                            ) : (
+                                'Centang kotak pada foto produk untuk memilih sebagian produk'
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {/* Items Grid */}
                 {items.data && items.data.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -351,6 +446,7 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
                                     setEditingItem(item);
                                     setIsItemModalOpen(true);
                                 }}
+                                onDelete={handleDeleteItem}
                                 onStockOpname={(item) => {
                                     setOpnameItem(item);
                                     setIsOpnameOpen(true);
@@ -359,6 +455,8 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
                                     setGalleryItem(item);
                                     setIsGalleryOpen(true);
                                 }}
+                                isSelected={selectedItemIds.includes(item.id)}
+                                onToggleSelect={user?.role === 'tkno_admin' ? toggleSelectItem : null}
                             />
                         ))}
                     </div>
@@ -408,6 +506,7 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
             <ItemModal
                 isOpen={isItemModalOpen}
                 item={editingItem}
+                user={user}
                 onClose={() => {
                     setIsItemModalOpen(false);
                     setEditingItem(null);
