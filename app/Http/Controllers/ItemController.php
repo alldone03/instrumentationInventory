@@ -20,6 +20,7 @@ class ItemController extends Controller
 {
     public function index(Request $request): Response
     {
+        $user = $request->user();
         $filters = $request->only(['search', 'type', 'location_id', 'owner_work_area_id', 'item_category']);
 
         $itemsQuery = Item::query()
@@ -27,10 +28,16 @@ class ItemController extends Controller
             ->filter($filters)
             ->latest('id');
 
+        // Jika user bukan tkno_admin, jangan tampilkan barang dengan area kepemilikan 'Shop'
+        if (!$user || !$user->isTknoAdmin()) {
+            $itemsQuery->whereDoesntHave('ownerWorkArea', function ($q) {
+                $q->whereRaw('LOWER(TRIM(name)) = ?', ['shop']);
+            });
+        }
+
         $items = $itemsQuery->paginate(12)->withQueryString();
 
         // Append approval check helper for currently logged-in user
-        $user = $request->user();
         $items->getCollection()->transform(function ($item) use ($user) {
             $item->requires_approval = $item->requiresApprovalFor($user);
             return $item;
@@ -38,7 +45,12 @@ class ItemController extends Controller
         $no_po = $request->input('no_po');
 
         $locations = Location::withCount('items')->orderBy('name')->get();
-        $workAreas = WorkArea::orderBy('name')->get(['id', 'name']);
+
+        $workAreasQuery = WorkArea::orderBy('name');
+        if (!$user || !$user->isTknoAdmin()) {
+            $workAreasQuery->whereRaw('LOWER(TRIM(name)) != ?', ['shop']);
+        }
+        $workAreas = $workAreasQuery->get(['id', 'name']);
 
         $types = [
             'Control Valve',
@@ -211,6 +223,14 @@ class ItemController extends Controller
             ]);
 
             $query = Item::with(['location', 'ownerWorkArea']);
+
+            $currentUser = auth()->user();
+            if (!$currentUser || !$currentUser->isTknoAdmin()) {
+                $query->whereDoesntHave('ownerWorkArea', function ($q) {
+                    $q->whereRaw('LOWER(TRIM(name)) = ?', ['shop']);
+                });
+            }
+
             if (!empty($selectedIds)) {
                 $query->whereIn('id', $selectedIds);
             }

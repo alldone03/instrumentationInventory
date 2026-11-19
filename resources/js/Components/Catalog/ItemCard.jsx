@@ -60,18 +60,18 @@ export default function ItemCard({
                 {/* Badges on image */}
                 <div className="absolute top-2 left-2 flex flex-col gap-1">
                     {item.mn_code ? (
-    <span className="badge badge-primary font-mono text-[11px] font-bold shadow-sm">
-        MN: {item.mn_code}
-    </span>
-) : item.no_po ? (
-    <span className="badge badge-secondary font-mono text-[11px] font-bold shadow-sm">
-        PO: {item.no_po}
-    </span>
-) : (
-    <span className="badge badge-neutral text-white font-mono text-[11px] font-bold shadow-sm">
-        NO MN
-    </span>
-)}
+                        <span className="badge badge-primary font-mono text-[11px] font-bold shadow-sm">
+                            MN: {item.mn_code}
+                        </span>
+                    ) : item.no_po ? (
+                        <span className="badge badge-secondary font-mono text-[11px] font-bold shadow-sm">
+                            PO: {item.no_po}
+                        </span>
+                    ) : (
+                        <span className="badge badge-neutral text-white font-mono text-[11px] font-bold shadow-sm">
+                            NO MN
+                        </span>
+                    )}
 
                     <span className={`badge badge-sm font-semibold shadow-sm ${item.item_category === 'tool' ? 'badge-secondary text-white' : 'badge-ghost bg-base-100/90 text-base-content'
                         }`}>
@@ -122,7 +122,7 @@ export default function ItemCard({
                             </span>
                         ) : item.owner_work_area?.name?.toLowerCase().trim() === 'shop' ? (
                             <span className="badge badge-error badge-sm text-white font-medium text-[11px]">
-                                ⚡ Area: Shop (TKNO Admin)
+                                ⚡ Area: Shop (Admin)   
                             </span>
                         ) : (
                             <span className="badge badge-info badge-outline badge-sm text-[11px] font-medium">
