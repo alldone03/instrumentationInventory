@@ -105,6 +105,7 @@ class ItemController extends Controller
             'no_po' => $no_po,
             'sapClassifications' => $sapClassifications,
             'requesterNames' => $requester_name,
+            'transactionItems' => $items->load('transactionItems')->toArray(),
         ]);
     }
 

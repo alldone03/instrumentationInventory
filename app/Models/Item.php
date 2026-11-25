@@ -69,7 +69,7 @@ class Item extends Model
 
     public function transactionItems(): HasMany
     {
-        return $this->hasMany(InventoryTransactionItem::class);
+        return $this->hasMany(InventoryTransactionItem::class)->with('InventoryTransaction');
     }
 
     public function getPrimaryImageUrlAttribute(): ?string
@@ -136,5 +136,6 @@ class Item extends Model
                 $query->where('item_category', $category);
             });
     }
+ 
 }
 

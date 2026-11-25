@@ -33,6 +33,24 @@ export default function ItemCard({
 
     const totalPoCount = poList.filter((p) => p && p.number && p.number.trim() !== '').length;
 
+    const formatDateDDMMYYYYHHMMSS = (dateString) => {
+        if (!dateString) return '-';
+
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return '-';
+
+        const pad = (num) => String(num).padStart(2, '0');
+
+        const dd = pad(date.getDate());
+        const mm = pad(date.getMonth() + 1); // Bulan di JS mulai dari 0
+        const yyyy = date.getFullYear();
+
+        const hh = pad(date.getHours());
+        const min = pad(date.getMinutes());
+        const ss = pad(date.getSeconds());
+
+        return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+    };
     return (
         <div className={`card bg-base-100 shadow-md hover:shadow-xl transition-all duration-200 border flex flex-col justify-between overflow-hidden group ${isSelected ? 'border-primary ring-2 ring-primary/40' : 'border-base-300'}`}>
             {/* Top Media Section */}
@@ -180,7 +198,15 @@ export default function ItemCard({
                             <span className="font-semibold">Catatan:</span> {item.notes}
                         </div>
                     )}
-                    <RiwayatPengambilan />
+                    <RiwayatPengambilan history={item.transaction_items
+                        ? item.transaction_items.map((t) => ({
+                            id: t.id,
+                            waktu: formatDateDDMMYYYYHHMMSS(t.inventory_transaction?.created_at) ?? '-',
+                            pemohon: t.inventory_transaction?.requester_name ?? '-',
+                            qty: t.quantity ?? 0,
+                            buktiFoto: t.inventory_transaction?.checkout_photo_url ?? '',
+                        }))
+                        : []} />
                 </div>
 
                 {/* Actions */}

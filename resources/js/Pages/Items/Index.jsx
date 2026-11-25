@@ -33,6 +33,7 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
     // Reset allItems when server-side items prop changes (filters/search)
     useEffect(() => {
         setAllItems(items.data || []);
+        console.log(allItems);
         setNextPageUrl(items.next_page_url);
     }, [items]);
 
