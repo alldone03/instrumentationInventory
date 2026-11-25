@@ -3,12 +3,13 @@ import ReturnToolModal from '@/Components/Transactions/ReturnToolModal';
 import RejectModal from '@/Components/Transactions/RejectModal';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import ReturnModal from '@/Components/Transactions/ReturnModal';
 
 export default function Index({ pendingTransactions = [], borrowedTransactions = [], historyTransactions = { data: [] } }) {
     const { auth } = usePage().props;
     const user = auth.user;
 
-    const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'borrowed', 'history'
+    const [activeTab, setActiveTab] = useState('history'); // 'pending', 'borrowed', 'history'
 
     const [selectedReturnTrx, setSelectedReturnTrx] = useState(null);
     const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
@@ -17,6 +18,8 @@ export default function Index({ pendingTransactions = [], borrowedTransactions =
     const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
 
     const [previewPhoto, setPreviewPhoto] = useState(null);
+
+    // console.log(historyTransactions);
 
     const handleApprove = (trx) => {
         if (confirm(`Setujui transaksi ${trx.transaction_code}? Stok sistem akan langsung dipotong.`)) {
@@ -83,9 +86,8 @@ export default function Index({ pendingTransactions = [], borrowedTransactions =
                 <div className="tabs tabs-boxed bg-base-100 p-1.5 rounded-xl border border-base-300 shadow-sm flex flex-wrap gap-1">
                     <button
                         onClick={() => setActiveTab('pending')}
-                        className={`tab flex-1 font-bold text-xs py-3 transition ${
-                            activeTab === 'pending' ? 'tab-active !bg-warning !text-neutral-900 shadow-sm' : ''
-                        }`}
+                        className={`tab flex-1 font-bold text-xs py-3 transition ${activeTab === 'pending' ? 'tab-active !bg-warning !text-neutral-900 shadow-sm' : ''
+                            }`}
                     >
                         ⏳ Menunggu Persetujuan
                         {pendingTransactions.length > 0 && (
@@ -96,9 +98,8 @@ export default function Index({ pendingTransactions = [], borrowedTransactions =
                     </button>
                     <button
                         onClick={() => setActiveTab('borrowed')}
-                        className={`tab flex-1 font-bold text-xs py-3 transition ${
-                            activeTab === 'borrowed' ? 'tab-active !bg-info !text-white shadow-sm' : ''
-                        }`}
+                        className={`tab flex-1 font-bold text-xs py-3 transition ${activeTab === 'borrowed' ? 'tab-active !bg-info !text-white shadow-sm' : ''
+                            }`}
                     >
                         🔧 Alat Sedang Dipinjam
                         {borrowedTransactions.length > 0 && (
@@ -109,9 +110,8 @@ export default function Index({ pendingTransactions = [], borrowedTransactions =
                     </button>
                     <button
                         onClick={() => setActiveTab('history')}
-                        className={`tab flex-1 font-bold text-xs py-3 transition ${
-                            activeTab === 'history' ? 'tab-active !bg-primary !text-white shadow-sm' : ''
-                        }`}
+                        className={`tab flex-1 font-bold text-xs py-3 transition ${activeTab === 'history' ? 'tab-active !bg-primary !text-white shadow-sm' : ''
+                            }`}
                     >
                         📜 Riwayat Transaksi ({historyTransactions.total || historyTransactions.data.length})
                     </button>
@@ -166,7 +166,7 @@ export default function Index({ pendingTransactions = [], borrowedTransactions =
                                                     <div className="font-bold text-base-content">{trx.user?.name}</div>
                                                     <div className="text-[11px] text-base-content/60">
                                                         {trx.requester_work_area?.name || 'Area Umum'}
-                                                    </div>
+                                                    </  div>
                                                     {trx.user?.badge_number && (
                                                         <div className="text-[10px] font-mono text-base-content/40">
                                                             NIK: {trx.user.badge_number}
@@ -382,9 +382,10 @@ export default function Index({ pendingTransactions = [], borrowedTransactions =
                                             <th>Pemohon</th>
                                             <th>Barang</th>
                                             <th>Status</th>
-                                            <th>Otorisasi</th>
+                                            {/* <th>Otorisasi</th> */}
                                             <th>Bukti Foto</th>
                                             <th>Catatan</th>
+                                            <th>Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -400,10 +401,7 @@ export default function Index({ pendingTransactions = [], borrowedTransactions =
                                                     })}
                                                 </td>
                                                 <td>
-                                                    <div className="font-bold text-base-content">{trx.user?.name}</div>
-                                                    <div className="text-[11px] text-base-content/60">
-                                                        {trx.requester_work_area?.name || 'Area Umum'}
-                                                    </div>
+                                                    <div className="font-bold text-base-content">{trx.requester_name}</div>
                                                 </td>
                                                 <td>
                                                     <div className="space-y-0.5">
@@ -422,7 +420,7 @@ export default function Index({ pendingTransactions = [], borrowedTransactions =
                                                 <td>
                                                     {getStatusBadge(trx.status)}
                                                 </td>
-                                                <td>
+                                                {/* <td>
                                                     {trx.approver ? (
                                                         <div>
                                                             <span className="font-medium text-base-content block">
@@ -435,7 +433,7 @@ export default function Index({ pendingTransactions = [], borrowedTransactions =
                                                     ) : (
                                                         <span className="text-base-content/40 italic">-</span>
                                                     )}
-                                                </td>
+                                                </td> */}
                                                 <td>
                                                     <div className="flex items-center gap-1.5">
                                                         {trx.checkout_photo_url && (
@@ -482,6 +480,16 @@ export default function Index({ pendingTransactions = [], borrowedTransactions =
                                                         </p>
                                                     )}
                                                 </td>
+                                                <td>
+                                                    <div>
+                                                        <button
+                                                            onClick={() => handleOpenReturn(trx)}
+                                                            className="btn btn-secondary btn-sm text-white font-semibold shadow-sm gap-1"
+                                                        >
+                                                            <span>Edit</span>
+                                                        </button>
+                                                    </div>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -498,7 +506,7 @@ export default function Index({ pendingTransactions = [], borrowedTransactions =
             </div>
 
             {/* Modals */}
-            <ReturnToolModal
+            <ReturnModal
                 isOpen={isReturnModalOpen}
                 transaction={selectedReturnTrx}
                 onClose={() => {

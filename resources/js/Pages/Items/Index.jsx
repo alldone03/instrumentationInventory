@@ -6,9 +6,10 @@ import PhotoGalleryModal from '@/Components/Catalog/PhotoGalleryModal';
 import StockOpnameModal from '@/Components/Catalog/StockOpnameModal';
 import CheckoutDrawer from '@/Components/Cart/CheckoutDrawer';
 import { Head, router, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import axios from 'axios';
+import { useEffect, useRef, useState } from 'react';
 
-export default function Index({ items, filters = {}, locations = [], workAreas = [], types = [], units = [], sapClassifications = [] }) {
+export default function Index({ items, filters = {}, locations = [], workAreas = [], types = [], units = [], sapClassifications = [], requesterNames }) {
     const { auth } = usePage().props;
     const user = auth.user;
 
@@ -17,6 +18,60 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
     const [selectedLocation, setSelectedLocation] = useState(filters.location_id || '');
     const [selectedArea, setSelectedArea] = useState(filters.owner_work_area_id || '');
     const [selectedCategory, setSelectedCategory] = useState(filters.item_category || '');
+
+    // Infinite scroll state
+    const [allItems, setAllItems] = useState(items.data || []);
+    const [nextPageUrl, setNextPageUrl] = useState(items.next_page_url);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+    // Refs
+    const debounceRef = useRef(null);
+    const loadMoreRef = useRef(null);
+
+
+    // console.log(requesterNames);
+    // Reset allItems when server-side items prop changes (filters/search)
+    useEffect(() => {
+        setAllItems(items.data || []);
+        setNextPageUrl(items.next_page_url);
+    }, [items]);
+
+    // IntersectionObserver for infinite scroll
+    useEffect(() => {
+        const sentinel = loadMoreRef.current;
+        if (!sentinel) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const entry = entries[0];
+                if (entry.isIntersecting && nextPageUrl && !isLoadingMore) {
+                    setIsLoadingMore(true);
+                    axios.get(nextPageUrl)
+                        .then((response) => {
+                            setAllItems((prev) => [...prev, ...response.data.data]);
+                            setNextPageUrl(response.data.next_page_url);
+                        })
+                        .catch((err) => {
+                            console.error('Failed to load more items', err);
+                        })
+                        .finally(() => {
+                            setIsLoadingMore(false);
+                        });
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [nextPageUrl, isLoadingMore]);
+
+    // Cleanup debounce on unmount
+    useEffect(() => {
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, []);
 
     // Cart state persisted in localStorage
     const [cart, setCart] = useState(() => {
@@ -162,6 +217,7 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
 
     const handleClearCart = () => {
         setCart([]);
+        console.log("cleared");
     };
 
     const totalCartCount = cart.reduce((acc, curr) => acc + curr.quantity, 0);
@@ -202,6 +258,7 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
                 {/* Header & Quick Action Bar */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-base-100 p-5 rounded-2xl border border-base-300 shadow-sm">
                     <div>
+                        d
                         <div className="flex items-center gap-2 mb-1">
                             <span className="badge badge-primary font-mono text-xs">Workshop Inventory</span>
                             <span className="badge badge-outline text-xs">SAP Synchronized</span>
@@ -234,11 +291,10 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
                                     ? `${route('items.export-sap')}?ids=${selectedItemIds.join(',')}`
                                     : route('items.export-sap')
                             }
-                            className={`btn btn-sm font-semibold gap-1.5 transition ${
-                                selectedItemIds.length > 0
-                                    ? 'btn-success text-white shadow-sm'
-                                    : 'btn-outline hover:bg-success hover:text-white hover:border-success'
-                            }`}
+                            className={`btn btn-sm font-semibold gap-1.5 transition ${selectedItemIds.length > 0
+                                ? 'btn-success text-white shadow-sm'
+                                : 'btn-outline hover:bg-success hover:text-white hover:border-success'
+                                }`}
                             title={
                                 selectedItemIds.length > 0
                                     ? `Unduh ${selectedItemIds.length} produk terpilih sesuai format SAP`
@@ -288,110 +344,117 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
 
                 {/* Filters & Instant Search Bar */}
                 <div className="bg-base-100 p-4 rounded-2xl border border-base-300 shadow-sm space-y-3">
-                    <form onSubmit={handleSearchSubmit} className="flex flex-col lg:flex-row gap-3">
+                    <form onSubmit={handleSearchSubmit}>
                         {/* Search Input */}
-                        <div className="relative flex-1">
-                            <input
-                                type="text"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Cari nama barang, deskripsi SAP, atau nomor MN (e.g. 6193311)..."
-                                className="input input-bordered input-sm w-full pl-9 text-xs"
-                            />
-                            <svg
-                                className="w-4 h-4 absolute left-3 top-2.5 text-base-content/40"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        <div className='flex flex-col gap-3'>
+
+                            <div className="relative flex-1">
+                                <input
+                                    type="text"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    placeholder="Cari nama barang, deskripsi SAP, atau nomor MN (e.g. 6193311)..."
+                                    className="input input-bordered input-sm w-full pl-9 text-xs"
                                 />
-                            </svg>
-                        </div>
-
-                        {/* Filter Category */}
-                        <select
-                            value={selectedCategory}
-                            onChange={(e) => {
-                                setSelectedCategory(e.target.value);
-                                applyFilters({ item_category: e.target.value });
-                            }}
-                            className="select select-bordered select-sm text-xs"
-                        >
-                            <option value="">Semua Kategori</option>
-                            <option value="consumable_part">📦 Sparepart (Consumable)</option>
-                            <option value="tool">🔧 Tools (Returnable)</option>
-                        </select>
-
-                        {/* Filter Type */}
-                        <select
-                            value={selectedType}
-                            onChange={(e) => {
-                                setSelectedType(e.target.value);
-                                applyFilters({ type: e.target.value });
-                            }}
-                            className="select select-bordered select-sm text-xs"
-                        >
-                            <option value="">Semua Tipe Teknik</option>
-                            {types.map((t) => (
-                                <option key={t} value={t}>
-                                    {t}
-                                </option>
-                            ))}
-                        </select>
-
-                        {/* Filter Area */}
-                        <select
-                            value={selectedArea}
-                            onChange={(e) => {
-                                setSelectedArea(e.target.value);
-                                applyFilters({ owner_work_area_id: e.target.value });
-                            }}
-                            className="select select-bordered select-sm text-xs"
-                        >
-                            <option value="">Semua Area Pemilik</option>
-                            {workAreas.map((area) => (
-                                <option key={area.id} value={area.id}>
-                                    {area.name}
-                                </option>
-                            ))}
-                        </select>
-
-                        {/* Filter Location */}
-                        <select
-                            value={selectedLocation}
-                            onChange={(e) => {
-                                setSelectedLocation(e.target.value);
-                                applyFilters({ location_id: e.target.value });
-                            }}
-                            className="select select-bordered select-sm text-xs"
-                        >
-                            <option value="">Semua Lokasi Rak</option>
-                            {locations.map((loc) => (
-                                <option key={loc.id} value={loc.id}>
-                                    {loc.name}
-                                </option>
-                            ))}
-                        </select>
-
-                        <div className="flex gap-2">
-                            <button type="submit" className="btn btn-sm btn-primary text-white text-xs px-4">
-                                Cari
-                            </button>
-                            {(search || selectedType || selectedLocation || selectedArea || selectedCategory) && (
-                                <button
-                                    type="button"
-                                    onClick={handleResetFilters}
-                                    className="btn btn-sm btn-ghost text-xs"
+                                <svg
+                                    className="w-4 h-4 absolute left-3 top-2.5 text-base-content/40"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
                                 >
-                                    Reset
-                                </button>
-                            )}
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                                    />
+                                </svg>
+                            </div>
+
+                            <div className='flex flex-col gap-3 md:flex-row justify-between'>
+
+                                {/* Filter Category */}
+                                <select
+                                    value={selectedCategory}
+                                    onChange={(e) => {
+                                        setSelectedCategory(e.target.value);
+                                        applyFilters({ item_category: e.target.value });
+                                    }}
+                                    className="select select-bordered select-sm text-xs w-full  "
+                                >
+                                    <option value="">Semua Kategori</option>
+                                    <option value="consumable_part">📦 Sparepart (Consumable)</option>
+                                    <option value="tool">🔧 Tools (Returnable)</option>
+                                </select>
+
+                                {/* Filter Type */}
+                                <select
+                                    value={selectedType}
+                                    onChange={(e) => {
+                                        setSelectedType(e.target.value);
+                                        applyFilters({ type: e.target.value });
+                                    }}
+                                    className="select select-bordered select-sm text-xs w-full  "
+                                >
+                                    <option value="">Semua Tipe Teknik</option>
+                                    {types.map((t) => (
+                                        <option key={t} value={t}>
+                                            {t}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                {/* Filter Area */}
+                                <select
+                                    value={selectedArea}
+                                    onChange={(e) => {
+                                        setSelectedArea(e.target.value);
+                                        applyFilters({ owner_work_area_id: e.target.value });
+                                    }}
+                                    className="select select-bordered select-sm text-xs w-full  "
+                                >
+                                    <option value="">Semua Area Pemilik</option>
+                                    {workAreas.map((area) => (
+                                        <option key={area.id} value={area.id}>
+                                            {area.name}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                {/* Filter Location */}
+                                <select
+                                    value={selectedLocation}
+                                    onChange={(e) => {
+                                        setSelectedLocation(e.target.value);
+                                        applyFilters({ location_id: e.target.value });
+                                    }}
+                                    className="select select-bordered select-sm text-xs w-full  "
+                                >
+                                    <option value="">Semua Lokasi Rak</option>
+                                    {locations.map((loc) => (
+                                        <option key={loc.id} value={loc.id}>
+                                            {loc.name}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                <div className="flex gap-2">
+                                    <button type="submit" className="btn btn-sm btn-primary text-white text-xs px-4">
+                                        Cari
+                                    </button>
+                                    {(search || selectedType || selectedLocation || selectedArea || selectedCategory) && (
+                                        <button
+                                            type="button"
+                                            onClick={handleResetFilters}
+                                            className="btn btn-sm btn-ghost text-xs"
+                                        >
+                                            Reset
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
                         </div>
+
                     </form>
                 </div>
 
@@ -486,9 +549,8 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
                                     onClick={() => link.url && router.get(link.url, {}, { preserveScroll: true })}
                                     disabled={!link.url}
                                     dangerouslySetInnerHTML={{ __html: link.label }}
-                                    className={`join-item btn btn-sm font-mono text-xs ${
-                                        link.active ? 'btn-primary text-white font-bold' : 'btn-ghost'
-                                    }`}
+                                    className={`join-item btn btn-sm font-mono text-xs ${link.active ? 'btn-primary text-white font-bold' : 'btn-ghost'
+                                        }`}
                                 />
                             ))}
                         </div>
@@ -544,6 +606,8 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
                 onUpdateQuantity={handleUpdateQuantity}
                 onRemoveFromCart={handleRemoveFromCart}
                 onClearCart={handleClearCart}
+                requesterNames={requesterNames}
+
             />
         </AuthenticatedLayout>
     );

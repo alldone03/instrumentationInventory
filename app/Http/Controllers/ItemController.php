@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreItemRequest;
 use App\Http\Requests\UpdateItemRequest;
+use App\Models\InventoryTransaction;
 use App\Models\Item;
 use App\Models\ItemImage;
 use App\Models\Location;
@@ -89,6 +90,11 @@ class ItemController extends Controller
             'Unit (UNT)',
         ];
 
+
+  
+        $requester_name = InventoryTransaction::select('requester_name')->distinct()->where('requester_name', '!=', null)->get();
+        // dd($requester_name->toArray());
+
         return Inertia::render('Items/Index', [
             'items' => $items,
             'filters' => $filters,
@@ -98,6 +104,7 @@ class ItemController extends Controller
             'units' => $units,
             'no_po' => $no_po,
             'sapClassifications' => $sapClassifications,
+            'requesterNames' => $requester_name,
         ]);
     }
 

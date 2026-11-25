@@ -1,3 +1,5 @@
+import RiwayatPengambilan from "./RiwayatPengambilan";
+
 export default function ItemCard({
     item,
     user,
@@ -148,7 +150,7 @@ export default function ItemCard({
                             </span>
                         ) : item.owner_work_area?.name?.toLowerCase().trim() === 'shop' ? (
                             <span className="badge badge-error badge-sm text-white font-medium text-[11px]">
-                                ⚡ Area: Shop (Admin)   
+                                ⚡ Area: Shop (Admin)
                             </span>
                         ) : (
                             <span className="badge badge-info badge-outline badge-sm text-[11px] font-medium">
@@ -178,6 +180,7 @@ export default function ItemCard({
                             <span className="font-semibold">Catatan:</span> {item.notes}
                         </div>
                     )}
+                    <RiwayatPengambilan />
                 </div>
 
                 {/* Actions */}

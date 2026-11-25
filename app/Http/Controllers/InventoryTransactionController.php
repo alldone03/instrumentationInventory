@@ -65,12 +65,15 @@ class InventoryTransactionController extends Controller
             'pendingTransactions' => $pendingQuery->get(),
             'borrowedTransactions' => $borrowedQuery->get(),
             'historyTransactions' => $historyQuery->paginate(15)->withQueryString(),
+            // 'historyTransactions' => $historyQuery->paginate(15)->withQueryString(),
+
         ]);
     }
 
     public function store(CheckoutRequest $request): RedirectResponse
     {
         $user = $request->user();
+        // dd($request);
         $validated = $request->validated();
 
         $itemsInput = collect($validated['items']);
@@ -138,6 +141,7 @@ class InventoryTransactionController extends Controller
                     'approved_at' => $requiresApproval ? null : now(),
                     'checkout_photo_path' => $photoPath,
                     'purpose_notes' => $validated['purpose_notes'],
+                    'requester_name' => $validated['requester_name'],
                 ]);
 
                 foreach ($toolItems as $input) {
@@ -185,6 +189,7 @@ class InventoryTransactionController extends Controller
                     'approved_at' => $requiresApproval ? null : now(),
                     'checkout_photo_path' => $photoPath,
                     'purpose_notes' => $validated['purpose_notes'],
+                    'requester_name' => $validated['requester_name'],
                 ]);
 
                 foreach ($materialItems as $input) {
@@ -221,8 +226,10 @@ class InventoryTransactionController extends Controller
                     : "Pengambilan material ({$trxInfo['code']}) berhasil diselesaikan & stok dipotong.";
             }
         }
+        // resnponse json
+        // App\Http\Controllers\InventoryTransactionController::store(): Return value must be of type Illuminate\Http\RedirectResponse, Illuminate\Http\Response returned
 
-        return redirect()->route('transactions.index')->with('success', implode(' | ', $messages));
+        return redirect()->back()->with('success', implode(' | ', $messages));
     }
 
     public function approve(Request $request, InventoryTransaction $transaction): RedirectResponse
@@ -324,4 +331,96 @@ class InventoryTransactionController extends Controller
 
         return redirect()->back()->with('success', "Alat untuk transaksi {$transaction->transaction_code} berhasil dikembalikan dan stok telah dikembalikan ke sistem.");
     }
+
+   public function returnToolData(Request $request, InventoryTransaction $transaction): RedirectResponse
+{
+    //saya mau menampilkan item_id juga
+    // $validated = $request->validate([
+    //     'return_photo' => ['required', 'file', 'image', 'max:5120'],
+    //     'items' => ['required', 'array', 'min:1'],
+    //     'items.*.transaction_item_id' => ['required', 'integer', 'exists:inventory_transaction_items,id'],
+    //     'items.*.return_qty' => ['required', 'numeric', 'min:0'],
+    // ], [
+    //     'return_photo.required' => 'Foto bukti pengembalian alat wajib diunggah!',
+    //     'items.required' => 'Data item pengembalian wajib diisi.',
+    // ]);
+
+    
+
+    $validated = $request->validate([
+        'return_photo' => 'required|file|image|max:5120',
+        'items' => 'required|array|min:1',
+        'items.*.item_id' => ['required', 'integer', 'exists:items,id'],
+        'items.*.transaction_item_id' => [
+            'required',
+            'integer',
+            'exists:inventory_transaction_items,id',
+            function ($attribute, $value, $fail) use ($transaction) {
+                $item = InventoryTransactionItem::where('id', $value)
+                    ->where('inventory_transaction_id', $transaction->id)
+                    ->first();
+
+                if (!$item) {
+                    return $fail("Detail item tidak ditemukan.");
+                }
+
+                
+            }
+        ],
+        'items.*.return_qty' => ['required', 'numeric', 'min:0'],
+    ], [
+        'return_photo.required' => 'Foto bukti pengembalian alat wajib diunggah!',
+        'items.required' => 'Data item pengembalian wajib diisi.',
+    ]);
+
+    $photoPath = $request->file('return_photo')->store('transactions', 'public');
+    // dd($validated);
+    // dd($request->all());
+
+   DB::transaction(function () use ($validated, $transaction, $photoPath) {
+    foreach ($validated['items'] as $row) {
+        /** @var InventoryTransactionItem $transactionItem */
+        $transactionItem = InventoryTransactionItem::where('id', $row['transaction_item_id'])
+            ->where('inventory_transaction_id', $transaction->id)
+            ->where('item_id', $row['item_id'])
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        // Sesuaikan dengan arti kolom `quantity` di tabel Anda
+        $currentQty = (float) $transactionItem->quantity;
+        $returnQty = (float) $row['return_qty'];
+
+        if ($returnQty > $currentQty) {
+            throw ValidationException::withMessages([
+                'items' => ["Jumlah kembali untuk item ID {$row['item_id']} ({$returnQty}) melebihi jumlah tersedia ({$currentQty})."],
+            ]);
+        }
+
+        // Contoh jika `quantity` pada InventoryTransactionItem dikurangi sejumlah yang dikembalikan
+        $remainingQty = $currentQty - $returnQty;
+
+        $transactionItem->update([
+            'quantity' => $remainingQty,
+        ]);
+
+        // Update stok pada model barang master (ganti `Item` sesuai nama model master barang Anda)
+        if ($returnQty > 0) {
+            $masterItem = Item::lockForUpdate()->find($row['item_id']);
+
+            if ($masterItem) {
+                // Sesuaikan nama kolom stok di tabel master item Anda (misal: stock / quantity)
+                $masterItem->increment('stock', $returnQty);
+            }
+        }
+    }
+
+    $transaction->update([
+        'return_photo_path' => $photoPath,
+    ]);
+});
+
+    return redirect()
+        ->back()
+        ->with('success', "Alat untuk transaksi {$transaction->transaction_code} berhasil diperbarui dan stok telah disesuaikan.");
+}
 }

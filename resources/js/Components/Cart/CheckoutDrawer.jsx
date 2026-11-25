@@ -1,5 +1,6 @@
 import { useForm } from '@inertiajs/react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import CreatableSelect from '../CreatableSelect';
 
 export default function CheckoutDrawer({
     isOpen,
@@ -9,6 +10,7 @@ export default function CheckoutDrawer({
     onUpdateQuantity,
     onRemoveFromCart,
     onClearCart,
+    requesterNames
 }) {
     if (!isOpen) return null;
 
@@ -24,9 +26,32 @@ export default function CheckoutDrawer({
 
     const { data, setData, post, processing, errors, reset } = useForm({
         purpose_notes: '',
+        requester_name: '',
         checkout_photo: null,
         items: cartItems.map((item) => ({ id: item.id, quantity: item.quantity })),
     });
+
+
+
+    const namaUserOptions = requesterNames.map((name) => ({ value: name.requester_name, label: name.requester_name }));
+    // nama 
+    // console.log(namaUserOptions)
+    const [NamaUser, setNamaUser] = useState([...namaUserOptions
+    ]);
+
+    const [selectedNamaUser, setSelectedNamaUser] = useState(null);
+
+    useEffect(() => {
+        if (selectedNamaUser) {
+            setData('requester_name', selectedNamaUser.value);
+        }
+    }, [selectedNamaUser]);
+
+    // Fungsi untuk menambahkan opsi baru ke state utama (atau kirim ke API/Backend)
+    const handleCreateNamaUser = (newOption) => {
+        setNamaUser((prev) => [...prev, newOption]);
+
+    };
 
     // Cek apakah ada item yang membutuhkan approval
     const requiresApproval = cartItems.some((item) => item.requires_approval);
@@ -56,7 +81,7 @@ export default function CheckoutDrawer({
         }));
 
         data.items = payloadItems;
-
+        console.log(data);
         post(route('transactions.store'), {
             forceFormData: true,
             onSuccess: () => {
@@ -361,6 +386,25 @@ export default function CheckoutDrawer({
                                         <span className="text-red-500 text-xs mt-1 block">{errors.purpose_notes}</span>
                                     )}
                                 </div>
+                                <div>
+                                    <label className="label py-1">
+                                        <span className="label-text font-bold text-xs text-slate-700">
+                                            Nama <span className="text-red-500">*</span>
+                                        </span>
+                                    </label>
+                                    <div className='w-full'>
+
+                                        <CreatableSelect
+                                            options={NamaUser}
+                                            value={selectedNamaUser}
+                                            onChange={setSelectedNamaUser}
+                                            onCreateOption={handleCreateNamaUser}
+                                            placeholder="Cari atau ketik kategori baru..."
+                                        />
+                                    </div>
+                                </div>
+
+
 
                                 {/* Mandatory Photo Upload & Mobile Camera */}
                                 <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
@@ -420,13 +464,12 @@ export default function CheckoutDrawer({
                                 type="submit"
                                 form="checkout-form"
                                 disabled={processing || cartItems.length === 0}
-                                className={`btn btn-sm text-white font-semibold flex-1 shadow-sm ${
-                                    hasTools && hasMaterials
-                                        ? 'btn-primary bg-gradient-to-r from-purple-600 to-blue-600 border-0'
-                                        : hasTools
+                                className={`btn btn-sm text-white font-semibold flex-1 shadow-sm ${hasTools && hasMaterials
+                                    ? 'btn-primary bg-gradient-to-r from-purple-600 to-blue-600 border-0'
+                                    : hasTools
                                         ? 'btn-secondary'
                                         : 'btn-primary'
-                                }`}
+                                    }`}
                             >
                                 {processing ? (
                                     <span className="loading loading-spinner loading-xs"></span>

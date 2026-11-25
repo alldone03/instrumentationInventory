@@ -24,7 +24,8 @@ class InventoryTransaction extends Model
         'checkout_photo_path',
         'return_photo_path',
         'returned_at',
-        'purpose_notes',
+        'purpose_notes', 
+        'requester_name', 
     ];
 
     protected $casts = [

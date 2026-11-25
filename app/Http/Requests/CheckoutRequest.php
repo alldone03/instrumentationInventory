@@ -20,6 +20,7 @@ class CheckoutRequest extends FormRequest
             'items' => ['required', 'array', 'min:1'],
             'items.*.id' => ['required', 'exists:items,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'requester_name' => ['required', 'string'],
         ];
     }
 
@@ -30,6 +31,7 @@ class CheckoutRequest extends FormRequest
             'checkout_photo.image' => 'File bukti harus berupa gambar/foto yang valid.',
             'purpose_notes.required' => 'Keperluan / Tag Number / Work Order wajib diisi.',
             'items.required' => 'Keranjang checkout tidak boleh kosong.',
+            'requester_name.required' => 'Nama User wajib diisi.',
         ];
     }
 }
