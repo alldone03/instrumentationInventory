@@ -41,6 +41,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/transactions/{transaction}/reject', [InventoryTransactionController::class, 'reject'])->name('transactions.reject');
     Route::post('/transactions/{transaction}/return', [InventoryTransactionController::class, 'returnTool'])->name('transactions.return');
     Route::post('/transactions/{transaction}/return_data', [InventoryTransactionController::class, 'returnToolData'])->name('transactions.return_data');
+    Route::delete('/transactions/{transaction}', [InventoryTransactionController::class, 'destroy'])->name('transactions.destroy');
 
     // Breeze Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

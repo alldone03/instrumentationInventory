@@ -24,6 +24,39 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
     const [nextPageUrl, setNextPageUrl] = useState(items.next_page_url);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
 
+    useEffect(() => {
+        setAllItems(items.data || []);
+        setNextPageUrl(items.next_page_url);
+    }, [items]);
+
+    useEffect(() => {
+        if (!nextPageUrl) return;
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && nextPageUrl && !isLoadingMore) {
+                    setIsLoadingMore(true);
+                    axios
+                        .get(nextPageUrl, { headers: { Accept: 'application/json' } })
+                        .then((res) => {
+                            const incoming = res.data?.data || [];
+                            setAllItems((prev) => {
+                                const existingIds = new Set(prev.map((item) => item.id));
+                                return [...prev, ...incoming.filter((item) => !existingIds.has(item.id))];
+                            });
+                            setNextPageUrl(res.data?.next_page_url || null);
+                        })
+                        .catch((err) => console.error('Failed to load more items', err))
+                        .finally(() => setIsLoadingMore(false));
+                }
+            },
+            { rootMargin: '200px' }
+        );
+
+        const el = loadMoreRef.current;
+        if (el) observer.observe(el);
+        return () => observer.disconnect();
+    }, [nextPageUrl, isLoadingMore]);
+
     // Refs
     const debounceRef = useRef(null);
     const loadMoreRef = useRef(null);
@@ -149,6 +182,14 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
     };
 
     // Filter Trigger
+    const searchTimeoutRef = useRef(null);
+
+    useEffect(() => {
+        return () => {
+            if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+        };
+    }, []);
+
     const applyFilters = (newFilters) => {
         router.get(
             route('items.index'),
@@ -164,12 +205,28 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
         );
     };
 
+    const handleSearchChange = (value) => {
+        setSearch(value);
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+        }
+        searchTimeoutRef.current = setTimeout(() => {
+            applyFilters({ search: value });
+        }, 1000);
+    };
+
     const handleSearchSubmit = (e) => {
         e.preventDefault();
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+        }
         applyFilters({ search });
     };
 
     const handleResetFilters = () => {
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+        }
         setSearch('');
         setSelectedType('');
         setSelectedLocation('');
@@ -353,7 +410,7 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
                                 <input
                                     type="text"
                                     value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
+                                    onChange={(e) => handleSearchChange(e.target.value)}
                                     placeholder="Cari nama barang, deskripsi SAP, atau nomor MN (e.g. 6193311)..."
                                     className="input input-bordered input-sm w-full pl-9 text-xs"
                                 />
@@ -540,23 +597,23 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
                     </div>
                 )}
 
-                {/* Pagination */}
-                {items.links && items.links.length > 3 && (
-                    <div className="flex justify-center py-4">
-                        <div className="join bg-base-100 border border-base-300 shadow-sm">
-                            {items.links.map((link, idx) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => link.url && router.get(link.url, {}, { preserveScroll: true })}
-                                    disabled={!link.url}
-                                    dangerouslySetInnerHTML={{ __html: link.label }}
-                                    className={`join-item btn btn-sm font-mono text-xs ${link.active ? 'btn-primary text-white font-bold' : 'btn-ghost'
-                                        }`}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                )}
+                {/* Auto Load on Scroll */}
+                <div ref={loadMoreRef} className="flex justify-center py-4">
+                    {isLoadingMore ? (
+                        <span className="text-xs text-base-content/60 flex items-center gap-2">
+                            <span className="loading loading-spinner loading-xs"></span>
+                            Memuat barang lainnya...
+                        </span>
+                    ) : nextPageUrl ? (
+                        <span className="text-[11px] text-base-content/40">
+                            Scroll ke bawah untuk memuat lebih banyak
+                        </span>
+                    ) : allItems.length > 0 ? (
+                        <span className="text-[11px] text-base-content/40">
+                            Semua barang telah ditampilkan ({allItems.length})
+                        </span>
+                    ) : null}
+                </div>
             </div>
 
             {/* Modals & Drawer */}

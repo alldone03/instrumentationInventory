@@ -15,6 +15,7 @@ class InventoryTransaction extends Model
     protected $fillable = [
         'transaction_code',
         'user_id',
+        'requester_name',
         'requester_work_area_id',
         'transaction_type',
         'status',

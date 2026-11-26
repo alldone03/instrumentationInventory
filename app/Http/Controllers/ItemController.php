@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ItemController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request): Response|\Illuminate\Http\JsonResponse
     {
         $user = $request->user();
         $filters = $request->only(['search', 'type', 'location_id', 'owner_work_area_id', 'item_category']);
@@ -43,6 +43,10 @@ class ItemController extends Controller
             $item->requires_approval = $item->requiresApprovalFor($user);
             return $item;
         });
+
+        if ($request->wantsJson() && !$request->header('X-Inertia')) {
+            return response()->json($items);
+        }
         $no_po = $request->input('no_po');
 
         $locations = Location::withCount('items')->orderBy('name')->get();

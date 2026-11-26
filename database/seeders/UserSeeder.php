@@ -25,6 +25,17 @@ class UserSeeder extends Seeder
                 'badge_number' => 'ADM-001',
             ]
         );
+        
+        User::firstOrCreate(
+            ['email' => 'admin@instrument.test'],
+            [
+                'name' => 'Admin Instrument Workshop',
+                'password' => Hash::make('password'),
+                'role' => 'tkno_admin',
+                'work_area_id' => null,
+                'badge_number' => 'ADM-001',
+            ]
+        );
 
         // 2. TKO Supervisor Phonska 1 & 4
         User::firstOrCreate(
