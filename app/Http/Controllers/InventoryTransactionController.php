@@ -116,6 +116,12 @@ class InventoryTransactionController extends Controller
             'historyTransactions' => $historyTransactions,
             'borrowedCount' => $borrowedCountQuery->count(),
             'availableItems' => $availableItems,
+            'requesterNames' => InventoryTransaction::select('requester_name')
+                ->whereNotNull('requester_name')
+                ->where('requester_name', '!=', '')
+                ->distinct()
+                ->orderBy('requester_name')
+                ->get(),
             'filters' => [
                 'search' => $search,
                 'sort_by' => $sortColumn,

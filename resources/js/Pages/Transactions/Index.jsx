@@ -10,6 +10,7 @@ export default function Index({
     historyTransactions = { data: [] },
     borrowedCount = 0,
     availableItems = [],
+    requesterNames = [],
     filters = {},
 }) {
     const { auth } = usePage().props;
@@ -682,6 +683,7 @@ export default function Index({
                 isOpen={isReturnModalOpen}
                 transaction={selectedReturnTrx}
                 availableItems={availableItems}
+                requesterNames={requesterNames}
                 onClose={() => {
                     setIsReturnModalOpen(false);
                     setSelectedReturnTrx(null);

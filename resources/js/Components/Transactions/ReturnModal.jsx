@@ -1,5 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import CreatableSelect from '../CreatableSelect';
 
 const toDateTimeLocalValue = (dateString) => {
     if (!dateString) return '';
@@ -14,6 +15,7 @@ export default function ReturnModal({
     isOpen,
     onClose,
     availableItems = [],
+    requesterNames = [],
 }) {
     const fileInputRef = useRef(null);
     const dropdownRef = useRef(null);
@@ -241,27 +243,28 @@ export default function ReturnModal({
 
         const maxAllowed = getMaxAllowedBorrowed(targetItem);
         let parsed = parseInt(rawValue, 10);
-        if (isNaN(parsed) || parsed < 1) parsed = 1;
+        if (isNaN(parsed) || parsed < 0) parsed = 0;
 
         if (maxAllowed > 0 && parsed > maxAllowed) {
             setClientError(
-                `Jumlah pinjam "${targetItem.item_name}" tidak boleh melebihi stok yang tersedia (Maks: ${maxAllowed} ${targetItem.unit}, Stok gudang: ${getCatalogStock(targetItem.item_id, targetItem.system_stock)}).`
+                `Jumlah dibawa "${targetItem.item_name}" tidak boleh melebihi stok yang tersedia (Maks: ${maxAllowed} ${targetItem.unit}, Stok gudang: ${getCatalogStock(targetItem.item_id, targetItem.system_stock)}).`
             );
             parsed = maxAllowed;
-        } else if (maxAllowed <= 0 && parsed > Number(targetItem.original_qty || 1)) {
+        } else if (maxAllowed <= 0 && parsed > Number(targetItem.original_qty || 0)) {
             setClientError(
-                `Stok gudang untuk "${targetItem.item_name}" sedang 0, tidak dapat menambah jumlah pinjam.`
+                `Stok gudang untuk "${targetItem.item_name}" sedang 0, tidak dapat menambah jumlah dibawa.`
             );
-            parsed = Math.max(1, Number(targetItem.original_qty || 1));
+            parsed = Math.max(0, Number(targetItem.original_qty || 0));
         }
 
         const updated = data.items.map((item, idx) => {
             if (idx !== index) return item;
-            const adjustedReturn = Math.min(Number(item.return_qty) || 0, parsed);
+            const originalQty = Number(item.original_qty ?? 0);
+            const autoReturn = Math.max(0, originalQty - parsed);
             return {
                 ...item,
                 borrowed_qty: parsed,
-                return_qty: adjustedReturn,
+                return_qty: autoReturn,
             };
         });
         setData('items', updated);
@@ -285,7 +288,11 @@ export default function ReturnModal({
         setClientError('');
         setData(
             'items',
-            data.items.map((item) => ({ ...item, return_qty: item.borrowed_qty }))
+            data.items.map((item) => ({
+                ...item,
+                borrowed_qty: 0,
+                return_qty: Number(item.original_qty ?? item.borrowed_qty ?? 0),
+            }))
         );
     };
 
@@ -561,12 +568,19 @@ export default function ReturnModal({
                                 <label className="label py-1">
                                     <span className="label-text text-xs font-semibold">Pemohon</span>
                                 </label>
-                                <input
-                                    type="text"
-                                    value={data.pemohon}
-                                    onChange={(e) => setData('pemohon', e.target.value)}
-                                    placeholder="Nama pemohon..."
-                                    className="input input-bordered input-sm w-full"
+                                <CreatableSelect
+                                    options={requesterNames.map((n) => ({
+                                        value: n.requester_name,
+                                        label: n.requester_name,
+                                    }))}
+                                    value={
+                                        data.pemohon
+                                            ? { value: data.pemohon, label: data.pemohon }
+                                            : null
+                                    }
+                                    onChange={(opt) => setData('pemohon', opt ? opt.value : '')}
+                                    onCreateOption={(newVal) => setData('pemohon', newVal)}
+                                    placeholder="Pilih atau ketik nama pemohon..."
                                 />
                             </div>
                         </div>
@@ -659,14 +673,14 @@ export default function ReturnModal({
                                             <div className="flex items-center gap-1 shrink-0">
                                                 <button
                                                     type="button"
-                                                    disabled={isFull || Number(item.borrowed_qty) <= 0}
+                                                    disabled={Number(item.borrowed_qty) <= 0}
                                                     onClick={() =>
-                                                        handleQtyChange(idx, item.borrowed_qty)
+                                                        handleBorrowedQtyChange(idx, 0)
                                                     }
                                                     className="btn btn-xs btn-outline btn-secondary"
-                                                    title="Kembalikan penuh sesuai jumlah pinjam"
+                                                    title="Kembalikan semua (dibawa = 0)"
                                                 >
-                                                    Full
+                                                    Kembali
                                                 </button>
                                                 <button
                                                     type="button"
@@ -680,48 +694,37 @@ export default function ReturnModal({
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-2.5 pt-1">
+                                        <div className="pt-1 space-y-1.5">
                                             <div className="form-control">
                                                 <label className="label py-0.5">
                                                     <span className="label-text text-[11px] font-medium">
-                                                        Pinjam ({item.unit})
+                                                        Dibawa Pemohon ({item.unit})
                                                     </span>
                                                     <span className="label-text-alt text-[10px] text-base-content/50">
-                                                        Maks: {maxAllowed}
-                                                    </span>
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    min={1}
-                                                    max={maxAllowed > 0 ? maxAllowed : undefined}
-                                                    value={item.borrowed_qty}
-                                                    onChange={(e) =>
-                                                        handleBorrowedQtyChange(idx, e.target.value)
-                                                    }
-                                                    className="input input-bordered input-xs w-full text-center font-mono"
-                                                />
-                                            </div>
-
-                                            <div className="form-control">
-                                                <label className="label py-0.5">
-                                                    <span className="label-text text-[11px] font-medium">
-                                                        Kembali ({item.unit})
-                                                    </span>
-                                                    <span className="label-text-alt text-[10px] text-base-content/50">
-                                                        Sisa: {stillBorrowed}
+                                                        Awal: {Number(item.original_qty ?? 0)} | Maks: {maxAllowed}
                                                     </span>
                                                 </label>
                                                 <input
                                                     type="number"
                                                     min={0}
-                                                    max={item.borrowed_qty}
-                                                    value={item.return_qty}
+                                                    max={maxAllowed > 0 ? maxAllowed : undefined}
+                                                    value={item.borrowed_qty}
                                                     onChange={(e) =>
-                                                        handleQtyChange(idx, e.target.value)
+                                                        handleBorrowedQtyChange(idx, e.target.value)
                                                     }
                                                     className="input input-bordered input-xs w-full text-center font-mono font-bold"
                                                 />
                                             </div>
+                                            {Number(item.borrowed_qty) < Number(item.original_qty ?? 0) && (
+                                                <div className="text-[11px] text-success font-medium">
+                                                    ↩ Kembali ke gudang: {Number(item.original_qty ?? 0) - Number(item.borrowed_qty)} {item.unit}
+                                                </div>
+                                            )}
+                                            {Number(item.borrowed_qty) > Number(item.original_qty ?? 0) && (
+                                                <div className="text-[11px] text-warning font-medium">
+                                                    ➕ Tambah bawa (kurangi stok): +{Number(item.borrowed_qty) - Number(item.original_qty ?? 0)} {item.unit}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 );
