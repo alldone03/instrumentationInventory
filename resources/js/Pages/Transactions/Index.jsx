@@ -386,9 +386,9 @@ export default function Index({
                                                     <div className="font-bold text-base-content">
                                                         {trx.requester_name || trx.user?.name}
                                                     </div>
-                                                    <div className="text-[11px] text-base-content/60">
+                                                    {/* <div className="text-[11px] text-base-content/60">
                                                         {trx.requester_work_area?.name || 'Area Umum'}
-                                                    </div>
+                                                    </div> */}
                                                     {trx.user?.badge_number && (
                                                         <div className="text-[10px] font-mono text-base-content/40">
                                                             NIK: {trx.user.badge_number}
