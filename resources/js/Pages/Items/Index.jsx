@@ -316,7 +316,7 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
                 {/* Header & Quick Action Bar */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-base-100 p-5 rounded-2xl border border-base-300 shadow-sm">
                     <div>
-                        d
+
                         <div className="flex items-center gap-2 mb-1">
                             <span className="badge badge-primary font-mono text-xs">Workshop Inventory</span>
                             <span className="badge badge-outline text-xs">SAP Synchronized</span>

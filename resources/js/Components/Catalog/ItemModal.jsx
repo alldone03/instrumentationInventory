@@ -425,6 +425,56 @@ export default function ItemModal({ isOpen, onClose, item = null, user = null, l
                                 />
                             </div>
 
+                            {item && (
+                                <div className="md:col-span-3 bg-base-200/40 rounded-lg border border-base-300 p-3 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-base-content">
+                                            📋 Log Stock Opname
+                                        </span>
+                                        <span className="text-[11px] text-base-content/60">
+                                            {item?.stock_opname_logs?.length || 0} riwayat
+                                        </span>
+                                    </div>
+                                    {item?.stock_opname_logs && item.stock_opname_logs.length > 0 ? (
+                                        <div className="max-h-36 overflow-y-auto divide-y divide-base-200 bg-base-100 rounded border border-base-200">
+                                            {item.stock_opname_logs.map((log) => (
+                                                <div
+                                                    key={log.id}
+                                                    className="px-3 py-1.5 flex items-center justify-between gap-2 text-[11px]"
+                                                >
+                                                    <div className="min-w-0">
+                                                        <span className="font-mono text-base-content/70">
+                                                            {new Date(log.opname_at).toLocaleString('id-ID', {
+                                                                dateStyle: 'medium',
+                                                                timeStyle: 'short',
+                                                            })}
+                                                        </span>
+                                                        {log.user?.name && (
+                                                            <span className="text-base-content/60 ml-2">
+                                                                oleh <b>{log.user.name}</b>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="font-mono shrink-0">
+                                                        <span className="text-base-content/50">
+                                                            {log.previous_system_stock}
+                                                        </span>
+                                                        <span className="mx-1">→</span>
+                                                        <span className="font-bold text-primary">
+                                                            {log.new_actual_stock} {item.unit || 'PCS'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-[11px] text-base-content/50 italic">
+                                            Belum ada riwayat stock opname untuk barang ini.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
                             <div>
                                 <label className="label py-1">
                                     <span className="label-text font-bold text-xs text-base-content">

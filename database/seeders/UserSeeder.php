@@ -15,25 +15,25 @@ class UserSeeder extends Seeder
         $phonska23 = WorkArea::where('name', 'Phonska 2 dan 3')->first();
 
         // 1. Super Admin (TKNO Admin)
-        User::firstOrCreate(
-            ['email' => 'admin@instrument.test'],
+        User::updateOrCreate(
+            ['email' => 'user@instrument.test'],
             [
-                'name' => 'Admin Instrument Workshop',
+                'name' => 'User Instrument',
                 'password' => Hash::make('password'),
-                'role' => 'tkno_admin',
+                'role' => 'tkno',
                 'work_area_id' => null,
-                'badge_number' => 'ADM-001',
+                'badge_number' => 'USR-001',
             ]
         );
         
-        User::firstOrCreate(
-            ['email' => 'admin@instrument.test'],
+        User::updateOrCreate(
+            ['email' => 'user@instrument.test'],
             [
-                'name' => 'Admin Instrument Workshop',
+                'name' => 'User Instrument',
                 'password' => Hash::make('password'),
-                'role' => 'tkno_admin',
+                'role' => 'tkno',
                 'work_area_id' => null,
-                'badge_number' => 'ADM-001',
+                'badge_number' => 'USR-001',
             ]
         );
 

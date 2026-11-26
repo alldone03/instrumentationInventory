@@ -156,17 +156,17 @@ export default function Index({
     const getStatusBadge = (status) => {
         switch (status) {
             case 'pending_approval':
-                return <span className="badge badge-warning text-xs font-semibold">Menunggu Approval</span>;
+                return <span className="badge badge-warning text-xs h-full text-center font-semibold">Menunggu Approval</span>;
             case 'borrowed':
-                return <span className="badge badge-info text-white text-xs font-semibold">Sedang Dipinjam</span>;
+                return <span className="badge badge-info text-white text-xs h-full text-center font-semibold">Sedang Dipinjam</span>;
             case 'partially_returned':
-                return <span className="badge badge-warning text-xs font-semibold">Dikembalikan Sebagian</span>;
+                return <span className="badge badge-warning text-xs h-full text-center font-semibold">Dikembalikan Sebagian</span>;
             case 'completed':
-                return <span className="badge badge-success text-white text-xs font-semibold">Selesai (Material)</span>;
+                return <span className="badge badge-success text-white h-full text-center text-xs font-semibold">Selesai</span>;
             case 'returned':
-                return <span className="badge badge-primary text-white text-xs font-semibold">Dikembalikan</span>;
+                return <span className="badge badge-primary text-white h-full text-center text-xs font-semibold">Dikembalikan</span>;
             case 'rejected':
-                return <span className="badge badge-error text-white text-xs font-semibold">Ditolak</span>;
+                return <span className="badge badge-error text-white h-full text-center text-xs font-semibold">Ditolak</span>;
             default:
                 return <span className="badge badge-ghost text-xs">{status}</span>;
         }
@@ -292,9 +292,8 @@ export default function Index({
                 <div className="tabs tabs-boxed bg-base-100 p-1.5 rounded-xl border border-base-300 shadow-sm flex flex-wrap gap-1">
                     <button
                         onClick={() => setActiveTab('pending')}
-                        className={`tab flex-1 font-bold text-xs py-3 transition ${
-                            activeTab === 'pending' ? 'tab-active !bg-warning !text-neutral-900 shadow-sm' : ''
-                        }`}
+                        className={`tab flex-1 font-bold text-xs py-3 transition ${activeTab === 'pending' ? 'tab-active !bg-warning !text-neutral-900 shadow-sm' : ''
+                            }`}
                     >
                         ⏳ Menunggu Persetujuan
                         {pendingTransactions.length > 0 && (
@@ -305,9 +304,8 @@ export default function Index({
                     </button>
                     <button
                         onClick={() => setActiveTab('history')}
-                        className={`tab flex-1 font-bold text-xs py-3 transition ${
-                            activeTab === 'history' ? 'tab-active !bg-primary !text-white shadow-sm' : ''
-                        }`}
+                        className={`tab flex-1 font-bold text-xs py-3 transition ${activeTab === 'history' ? 'tab-active !bg-primary !text-white shadow-sm' : ''
+                            }`}
                     >
                         📜 Log Transaksi & Alat Lapangan ({historyTransactions.total || historyTransactions.data.length})
                         {borrowedCount > 0 && (
@@ -563,7 +561,7 @@ export default function Index({
                                                             ))}
                                                         </div>
                                                     </td>
-                                                    <td>
+                                                    <td className="align-middle text-center">
                                                         {getStatusBadge(trx.status)}
                                                     </td>
                                                     <td>

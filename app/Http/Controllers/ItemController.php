@@ -8,6 +8,7 @@ use App\Models\InventoryTransaction;
 use App\Models\Item;
 use App\Models\ItemImage;
 use App\Models\Location;
+use App\Models\StockOpnameLog;
 use App\Models\WorkArea;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,7 +26,7 @@ class ItemController extends Controller
         $filters = $request->only(['search', 'type', 'location_id', 'owner_work_area_id', 'item_category']);
 
         $itemsQuery = Item::query()
-            ->with(['location', 'ownerWorkArea', 'images'])
+            ->with(['location', 'ownerWorkArea', 'images', 'stockOpnameLogs.user'])
             ->filter($filters)
             ->latest('id');
 
@@ -213,9 +214,24 @@ class ItemController extends Controller
             'last_stock_opname_at' => ['required', 'date'],
         ]);
 
-        $item->update($validated);
+        DB::transaction(function () use ($request, $item, $validated) {
+            StockOpnameLog::create([
+                'item_id' => $item->id,
+                'user_id' => $request->user()?->id,
+                'previous_system_stock' => (int) $item->system_stock,
+                'previous_actual_stock' => (int) $item->actual_stock,
+                'new_actual_stock' => (int) $validated['actual_stock'],
+                'opname_at' => $validated['last_stock_opname_at'],
+            ]);
 
-        return redirect()->back()->with('success', 'Stok Opname berhasil diperbarui.');
+            $item->update([
+                'actual_stock' => $validated['actual_stock'],
+                'system_stock' => $validated['actual_stock'],
+                'last_stock_opname_at' => $validated['last_stock_opname_at'],
+            ]);
+        });
+
+        return redirect()->back()->with('success', 'Stok Opname berhasil diperbarui dan Stok Sistem telah disesuaikan.');
     }
 
     public function exportSap(Request $request): StreamedResponse

@@ -72,6 +72,11 @@ class Item extends Model
         return $this->hasMany(InventoryTransactionItem::class)->with('InventoryTransaction');
     }
 
+    public function stockOpnameLogs(): HasMany
+    {
+        return $this->hasMany(StockOpnameLog::class)->latest('opname_at')->latest('id');
+    }
+
     public function getPrimaryImageUrlAttribute(): ?string
     {
         $primary = $this->images->firstWhere('is_primary', true) ?? $this->images->first();
