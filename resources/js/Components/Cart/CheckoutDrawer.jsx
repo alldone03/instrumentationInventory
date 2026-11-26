@@ -24,7 +24,7 @@ export default function CheckoutDrawer({
     const hasTools = toolItems.length > 0;
     const hasMaterials = materialItems.length > 0;
 
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, errors, reset, transform } = useForm({
         purpose_notes: '',
         requester_name: '',
         checkout_photo: null,
@@ -80,12 +80,16 @@ export default function CheckoutDrawer({
             quantity: item.quantity,
         }));
 
-        data.items = payloadItems;
-        console.log(data);
+        transform((formData) => ({
+            ...formData,
+            items: payloadItems,
+        }));
+
         post(route('transactions.store'), {
             forceFormData: true,
             onSuccess: () => {
                 reset();
+                setSelectedNamaUser(null);
                 setPhotoPreview(null);
                 onClearCart();
                 onClose();
@@ -97,8 +101,8 @@ export default function CheckoutDrawer({
         <div className="fixed inset-0 z-50 overflow-hidden">
             <div className="absolute inset-0 bg-slate-900/50 transition-opacity backdrop-blur-xs" onClick={onClose} />
 
-            <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-                <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col border-l border-slate-200">
+            <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
+                <div className="w-screen sm:max-w-md bg-white shadow-2xl flex flex-col sm:border-l border-slate-200">
                     {/* Header */}
                     <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -452,11 +456,11 @@ export default function CheckoutDrawer({
 
                     {/* Footer / Submit */}
                     {cartItems.length > 0 && (
-                        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+                        <div className="p-3 sm:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 sm:gap-3">
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="btn btn-sm btn-ghost text-slate-600"
+                                className="btn btn-sm btn-ghost text-slate-600 shrink-0"
                             >
                                 Tutup
                             </button>
@@ -464,7 +468,7 @@ export default function CheckoutDrawer({
                                 type="submit"
                                 form="checkout-form"
                                 disabled={processing || cartItems.length === 0}
-                                className={`btn btn-sm text-white font-semibold flex-1 shadow-sm ${hasTools && hasMaterials
+                                className={`btn btn-sm h-auto min-h-9 py-2 text-xs sm:text-sm leading-tight text-white font-semibold flex-1 shadow-sm ${hasTools && hasMaterials
                                     ? 'btn-primary bg-gradient-to-r from-purple-600 to-blue-600 border-0'
                                     : hasTools
                                         ? 'btn-secondary'
