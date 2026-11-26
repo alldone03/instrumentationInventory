@@ -23,6 +23,7 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
     const [allItems, setAllItems] = useState(items.data || []);
     const [nextPageUrl, setNextPageUrl] = useState(items.next_page_url);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const isLoadingMoreRef = useRef(false);
 
     useEffect(() => {
         setAllItems(items.data || []);
@@ -33,7 +34,8 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
         if (!nextPageUrl) return;
         const observer = new IntersectionObserver(
             (entries) => {
-                if (entries[0].isIntersecting && nextPageUrl && !isLoadingMore) {
+                if (entries[0].isIntersecting && nextPageUrl && !isLoadingMoreRef.current) {
+                    isLoadingMoreRef.current = true;
                     setIsLoadingMore(true);
                     axios
                         .get(nextPageUrl, { headers: { Accept: 'application/json' } })
@@ -46,59 +48,23 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
                             setNextPageUrl(res.data?.next_page_url || null);
                         })
                         .catch((err) => console.error('Failed to load more items', err))
-                        .finally(() => setIsLoadingMore(false));
+                        .finally(() => {
+                            isLoadingMoreRef.current = false;
+                            setIsLoadingMore(false);
+                        });
                 }
             },
-            { rootMargin: '200px' }
+            { rootMargin: '0px', threshold: 0.1 }
         );
 
         const el = loadMoreRef.current;
         if (el) observer.observe(el);
         return () => observer.disconnect();
-    }, [nextPageUrl, isLoadingMore]);
+    }, [nextPageUrl]);
 
     // Refs
     const debounceRef = useRef(null);
     const loadMoreRef = useRef(null);
-
-
-    // console.log(requesterNames);
-    // Reset allItems when server-side items prop changes (filters/search)
-    useEffect(() => {
-        setAllItems(items.data || []);
-        console.log(allItems);
-        setNextPageUrl(items.next_page_url);
-    }, [items]);
-
-    // IntersectionObserver for infinite scroll
-    useEffect(() => {
-        const sentinel = loadMoreRef.current;
-        if (!sentinel) return;
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                const entry = entries[0];
-                if (entry.isIntersecting && nextPageUrl && !isLoadingMore) {
-                    setIsLoadingMore(true);
-                    axios.get(nextPageUrl)
-                        .then((response) => {
-                            setAllItems((prev) => [...prev, ...response.data.data]);
-                            setNextPageUrl(response.data.next_page_url);
-                        })
-                        .catch((err) => {
-                            console.error('Failed to load more items', err);
-                        })
-                        .finally(() => {
-                            setIsLoadingMore(false);
-                        });
-                }
-            },
-            { threshold: 0.1 }
-        );
-
-        observer.observe(sentinel);
-        return () => observer.disconnect();
-    }, [nextPageUrl, isLoadingMore]);
 
     // Cleanup debounce on unmount
     useEffect(() => {
@@ -555,9 +521,9 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
                 )}
 
                 {/* Items Grid */}
-                {items.data && items.data.length > 0 ? (
+                {allItems && allItems.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {items.data.map((item) => (
+                        {allItems.map((item) => (
                             <ItemCard
                                 key={item.id}
                                 item={item}

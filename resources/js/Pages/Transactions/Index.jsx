@@ -35,6 +35,7 @@ export default function Index({
     const [allHistory, setAllHistory] = useState(historyTransactions.data || []);
     const [nextHistoryUrl, setNextHistoryUrl] = useState(historyTransactions.next_page_url);
     const [isLoadingMoreHistory, setIsLoadingMoreHistory] = useState(false);
+    const isLoadingMoreHistoryRef = useRef(false);
     const loadMoreHistoryRef = useRef(null);
 
     useEffect(() => {
@@ -46,7 +47,8 @@ export default function Index({
         if (activeTab !== 'history' || !nextHistoryUrl) return;
         const observer = new IntersectionObserver(
             (entries) => {
-                if (entries[0].isIntersecting && nextHistoryUrl && !isLoadingMoreHistory) {
+                if (entries[0].isIntersecting && nextHistoryUrl && !isLoadingMoreHistoryRef.current) {
+                    isLoadingMoreHistoryRef.current = true;
                     setIsLoadingMoreHistory(true);
                     axios
                         .get(nextHistoryUrl, { headers: { Accept: 'application/json' } })
@@ -59,16 +61,19 @@ export default function Index({
                             setNextHistoryUrl(res.data?.next_page_url || null);
                         })
                         .catch((err) => console.error('Failed to load more transactions', err))
-                        .finally(() => setIsLoadingMoreHistory(false));
+                        .finally(() => {
+                            isLoadingMoreHistoryRef.current = false;
+                            setIsLoadingMoreHistory(false);
+                        });
                 }
             },
-            { rootMargin: '200px' }
+            { rootMargin: '0px', threshold: 0.1 }
         );
 
         const el = loadMoreHistoryRef.current;
         if (el) observer.observe(el);
         return () => observer.disconnect();
-    }, [activeTab, nextHistoryUrl, isLoadingMoreHistory]);
+    }, [activeTab, nextHistoryUrl]);
 
     const handleDeleteTransaction = (trx) => {
         if (confirm(`Apakah Anda yakin ingin menghapus transaksi ${trx.transaction_code}? Stok barang akan disesuaikan kembali.`)) {
