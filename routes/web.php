@@ -24,6 +24,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/items/{item}', [ItemController::class, 'destroy'])->name('items.destroy');
     Route::post('/items/{item}/stock-opname', [ItemController::class, 'updateStockOpname'])->name('items.stock-opname');
     Route::get('/items-export/sap', [ItemController::class, 'exportSap'])->name('items.export-sap');
+    Route::post('/items-export/sap-selection', [ItemController::class, 'updateSapSelection'])->name('items.sap-selection');
 
     // Item Images
     Route::post('/item-images/{image}/set-primary', [ItemImageController::class, 'setPrimary'])->name('item-images.set-primary');

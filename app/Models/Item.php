@@ -32,6 +32,7 @@ class Item extends Model
         'location_id',
         'owner_work_area_id',
         'notes',
+        'is_sap_selected',
     ];
 
     protected $casts = [
@@ -41,6 +42,7 @@ class Item extends Model
         'actual_stock' => 'integer',
         'last_stock_opname_at' => 'datetime',
         'po_numbers' => 'array',
+        'is_sap_selected' => 'boolean',
     ];
 
     protected $appends = [

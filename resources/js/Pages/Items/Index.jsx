@@ -9,7 +9,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
 
-export default function Index({ items, filters = {}, locations = [], workAreas = [], types = [], units = [], sapClassifications = [], requesterNames }) {
+export default function Index({ items, filters = {}, locations = [], workAreas = [], types = [], units = [], sapClassifications = [], requesterNames, selectedSapItemIds = [] }) {
     const { auth } = usePage().props;
     const user = auth.user;
 
@@ -107,12 +107,37 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
     const [toastMessage, setToastMessage] = useState(null);
 
     // Selected products for SAP Export (TKNO Admin only)
-    const [selectedItemIds, setSelectedItemIds] = useState([]);
+    const [selectedItemIds, setSelectedItemIds] = useState(
+        user?.role === 'tkno_admin' ? selectedSapItemIds : []
+    );
+
+    useEffect(() => {
+        if (user?.role === 'tkno_admin') {
+            setSelectedItemIds(selectedSapItemIds);
+        } else {
+            setSelectedItemIds([]);
+        }
+    }, [selectedSapItemIds, user?.role]);
+
+    const persistSapSelection = (payload) => {
+        if (user?.role !== 'tkno_admin') return;
+        axios
+            .post(route('items.sap-selection'), payload)
+            .then((res) => {
+                if (Array.isArray(res.data?.selected_ids)) {
+                    setSelectedItemIds(res.data.selected_ids);
+                }
+            })
+            .catch((err) => console.error('Failed to save SAP selection', err));
+    };
 
     const toggleSelectItem = (id) => {
+        const isCurrentlySelected = selectedItemIds.includes(id);
+        const nextSelected = !isCurrentlySelected;
         setSelectedItemIds((prev) =>
-            prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+            nextSelected ? Array.from(new Set([...prev, id])) : prev.filter((item) => item !== id)
         );
+        persistSapSelection({ ids: [id], selected: nextSelected });
     };
 
     const handleSelectAllOnPage = () => {
@@ -123,14 +148,17 @@ export default function Index({ items, filters = {}, locations = [], workAreas =
         if (allSelected) {
             // Unselect all on this page
             setSelectedItemIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+            persistSapSelection({ ids: pageIds, selected: false });
         } else {
             // Select all on this page
             setSelectedItemIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+            persistSapSelection({ ids: pageIds, selected: true });
         }
     };
 
     const handleClearSelected = () => {
         setSelectedItemIds([]);
+        persistSapSelection({ clear: true });
     };
 
     const handleDeleteItem = (item) => {

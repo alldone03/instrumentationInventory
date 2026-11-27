@@ -111,6 +111,9 @@ class ItemController extends Controller
             'sapClassifications' => $sapClassifications,
             'requesterNames' => $requester_name,
             'transactionItems' => $items->load('transactionItems')->toArray(),
+            'selectedSapItemIds' => $user && $user->role === 'tkno_admin'
+                ? Item::where('is_sap_selected', true)->pluck('id')->values()->all()
+                : [],
         ]);
     }
 
@@ -232,6 +235,30 @@ class ItemController extends Controller
         });
 
         return redirect()->back()->with('success', 'Stok Opname berhasil diperbarui dan Stok Sistem telah disesuaikan.');
+    }
+
+    public function updateSapSelection(Request $request)
+    {
+        if ($request->user()?->role !== 'tkno_admin') {
+            abort(403, 'Unauthorized');
+        }
+
+        if ($request->boolean('clear')) {
+            Item::query()->update(['is_sap_selected' => false]);
+        } else {
+            $validated = $request->validate([
+                'ids' => ['required', 'array'],
+                'ids.*' => ['integer', 'exists:items,id'],
+                'selected' => ['required', 'boolean'],
+            ]);
+
+            Item::whereIn('id', $validated['ids'])
+                ->update(['is_sap_selected' => $validated['selected']]);
+        }
+
+        return response()->json([
+            'selected_ids' => Item::where('is_sap_selected', true)->pluck('id')->values()->all(),
+        ]);
     }
 
     public function exportSap(Request $request): StreamedResponse
